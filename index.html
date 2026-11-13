@@ -1,0 +1,2003 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Restart</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Restart helps in the two moments when heart disease kills fastest: a heart attack check that always errs toward calling, and an AI CPR coach that watches your compressions with the phone camera and tells you how to fix them.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Restart: an emergency instrument. Desktop: icon rail on the left and a sticky status bar (screen title,
+   clock, call button). Phone: bottom tab bar. HUD panels have corner brackets. Dark only, on purpose:
+   green = AED / go / in the target zone, red = call / arrest, amber = correct this, blue = information. */
+:root {
+  --bg: #060809;
+  --panel: #0C1012;
+  --panel-2: #11171A;
+  --glass: rgba(12, 16, 18, 0.86);
+  --ink: #E9EEF0;
+  --muted: #8A969C;
+  --dim: #586369;
+  --line: #182024;
+  --line-hi: #263137;
+  --go: #2EE88A;
+  --go-ink: #02160B;
+  --go-glow: rgba(46, 232, 138, 0.32);
+  --red: #FF3B3B;
+  --red-deep: #2A0909;
+  --red-glow: rgba(255, 59, 59, 0.4);
+  --amber: #FFB224;
+  --blue: #4CA8FF;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 4px;
+  --rail: 92px;
+  --bar: 62px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55;
+  background-color: var(--bg);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 32px 32px; background-attachment: fixed;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 80; background: var(--bg); }
+h1, h2, h3 { font-family: var(--display); font-weight: 800; line-height: 0.95; margin: 0; text-wrap: balance; text-transform: uppercase; letter-spacing: 0.005em; }
+h1 { font-size: clamp(3rem, 5.3vw, 5rem); }
+h2 { font-size: clamp(2rem, 3.4vw, 2.8rem); }
+h3 { font-size: 1.35rem; font-weight: 700; letter-spacing: 0.02em; }
+p { margin: 0; }
+a { color: var(--go); }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.lead { color: var(--muted); font-size: 1.08rem; max-width: 58ch; }
+.label { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+:focus-visible { outline: 2px solid var(--go); outline-offset: 3px; }
+
+/* ---------- app shell ---------- */
+.app { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); min-height: 100vh; }
+.rail { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 6px; padding: calc(14px + env(safe-area-inset-top, 0px)) 10px calc(14px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px)); border-right: 1px solid var(--line); background: rgba(6, 8, 9, 0.92); z-index: 40; }
+.rail .logo { display: grid; place-items: center; height: 54px; margin-bottom: 10px; }
+.rail .logo svg { width: 34px; height: 34px; }
+.navbtn { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 4px 9px; border-radius: var(--r); color: var(--muted); text-decoration: none; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; position: relative; transition: color 0.2s, background 0.2s; }
+.navbtn svg { width: 22px; height: 22px; }
+.navbtn:hover { color: var(--ink); background: var(--panel); }
+.navbtn[aria-current="page"] { color: var(--go); background: var(--panel); }
+.navbtn[aria-current="page"]::before { content: ""; position: absolute; left: -10px; top: 10px; bottom: 10px; width: 3px; background: var(--go); box-shadow: 0 0 12px var(--go-glow); }
+.navbtn.sos { color: var(--red); }
+.navbtn.sos[aria-current="page"] { color: var(--red); }
+.navbtn.sos[aria-current="page"]::before { background: var(--red); box-shadow: 0 0 12px var(--red-glow); }
+.rail .spacer { flex: 1; }
+.rail .lock { display: grid; place-items: center; gap: 4px; color: var(--dim); font-size: 0.62rem; text-align: center; font-family: var(--mono); letter-spacing: 0.06em; }
+.rail .lock svg { width: 18px; height: 18px; }
+.main { min-width: 0; display: flex; flex-direction: column; }
+.status { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; height: var(--bar); display: flex; align-items: center; gap: 14px; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); background: rgba(6, 8, 9, 0.9); border-bottom: 1px solid var(--line); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.status .where { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; }
+.status .where b { font-family: var(--display); font-size: 1.6rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status .brand-m { display: none; }
+.clock { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+.clock .label { font-size: 0.6rem; }
+.clock b { font-family: var(--mono); font-size: 1.2rem; color: var(--go); font-weight: 700; font-variant-numeric: tabular-nums; text-shadow: 0 0 14px var(--go-glow); }
+.clock.red b { color: var(--red); text-shadow: 0 0 14px var(--red-glow); }
+.screen { flex: 1; width: 100%; max-width: 1260px; margin: 0 auto; padding: 24px max(24px, env(safe-area-inset-right, 0px)) 40px max(24px, env(safe-area-inset-left, 0px)); }
+.tabbar { display: none; }
+
+/* ---------- buttons ---------- */
+.btn { font: 600 1rem/1 var(--body); border: 1px solid transparent; border-radius: var(--r); padding: 14px 18px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; color: var(--ink); background: transparent; min-height: 48px; transition: filter 0.15s, border-color 0.15s, background 0.15s, transform 0.1s; }
+.btn:active:not([disabled]) { transform: translateY(1px); }
+.btn[disabled] { opacity: 0.38; cursor: not-allowed; }
+.btn-go { background: var(--go); color: var(--go-ink); box-shadow: 0 0 0 1px rgba(46, 232, 138, 0.4), 0 8px 24px -12px var(--go-glow); }
+.btn-go:hover:not([disabled]) { filter: brightness(1.08); }
+.btn-red { background: var(--red); color: #fff; box-shadow: 0 8px 24px -12px var(--red-glow); }
+.btn-red:hover { filter: brightness(1.08); }
+.btn-line { border-color: var(--line-hi); background: var(--panel); }
+.btn-line:hover:not([disabled]) { border-color: var(--muted); }
+.btn-line[aria-pressed="true"] { border-color: var(--go); color: var(--go); }
+.btn-sm { min-height: 38px; padding: 9px 13px; font-size: 0.9rem; }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+.callbtn { white-space: nowrap; }
+
+/* ---------- HUD panels ---------- */
+.hud, .panel {
+  --b: var(--line-hi); --bl: 12px;
+  border: 1px solid var(--line); border-radius: var(--r); min-width: 0;
+  background:
+    linear-gradient(var(--b), var(--b)) top left / var(--bl) 1px no-repeat, linear-gradient(var(--b), var(--b)) top left / 1px var(--bl) no-repeat,
+    linear-gradient(var(--b), var(--b)) top right / var(--bl) 1px no-repeat, linear-gradient(var(--b), var(--b)) top right / 1px var(--bl) no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom left / var(--bl) 1px no-repeat, linear-gradient(var(--b), var(--b)) bottom left / 1px var(--bl) no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom right / var(--bl) 1px no-repeat, linear-gradient(var(--b), var(--b)) bottom right / 1px var(--bl) no-repeat,
+    var(--glass);
+}
+.hud { --b: var(--go); }
+.panel { padding: 22px; }
+.panel h3 + p, .panel h3 + .list { margin-top: 10px; }
+.list { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.list li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; color: var(--muted); }
+.list li::before { content: ""; width: 7px; height: 7px; margin-top: 9px; background: var(--go); }
+.list b { color: var(--ink); font-weight: 600; }
+
+/* ---------- home ---------- */
+.launch { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 28px; align-items: center; min-height: calc(100vh - var(--bar) - 64px); padding-bottom: 8px; }
+.launch .lead { margin-top: 18px; }
+.actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 28px; }
+.act { position: relative; display: grid; gap: 6px; text-align: left; padding: 20px 20px 18px; border-radius: var(--r); cursor: pointer; font: inherit; color: var(--ink); border: 1px solid var(--line-hi); background: var(--panel); transition: transform 0.15s, border-color 0.15s, filter 0.15s; overflow: hidden; }
+.act:hover { transform: translateY(-2px); }
+.act .k { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; }
+.act b { font-family: var(--display); font-size: 2.1rem; line-height: 0.92; text-transform: uppercase; font-weight: 800; }
+.act span:last-child { color: var(--muted); font-size: 0.9rem; line-height: 1.35; }
+.act.sos { background: var(--red); border-color: var(--red); box-shadow: 0 18px 50px -20px var(--red-glow); }
+.act.sos .k, .act.sos span:last-child { color: #FFE1DE; }
+.act.sos::after { content: ""; position: absolute; right: -40px; top: -40px; width: 140px; height: 140px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.35); animation: ping 1.6s cubic-bezier(.2,.6,.3,1) infinite; }
+.act.chk { border-color: rgba(46, 232, 138, 0.5); }
+.act.chk .k { color: var(--go); }
+@keyframes ping { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(1.5); opacity: 0; } }
+.sub-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.scope { position: relative; aspect-ratio: 1 / 1; max-width: 100%; min-width: 0; }
+.scope canvas.gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.scope canvas.ecg { position: absolute; left: 16px; right: 16px; bottom: 50px; height: 64px; width: calc(100% - 32px); display: block; }
+.scope .tl, .scope .tr, .scope .bl, .scope .br { position: absolute; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; line-height: 1.5; }
+.scope .tl { top: 14px; left: 16px; } .scope .tr { top: 14px; right: 16px; text-align: right; } .scope .bl { bottom: 14px; left: 16px; } .scope .br { bottom: 14px; right: 16px; text-align: right; }
+.scope b { color: var(--go); font-weight: 700; }
+.scope b.r { color: var(--red); }
+.urgent { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 18px 20px; background: var(--red-deep); border: 1px solid rgba(255, 59, 59, 0.5); border-radius: var(--r); }
+.urgent svg { width: 32px; height: 32px; color: var(--red); }
+.urgent b { display: block; font-family: var(--display); font-size: 1.6rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.urgent p { color: #F4C7C3; }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.trio .panel { padding: 18px 20px; }
+.trio .n { font-family: var(--display); font-weight: 800; font-size: 3.2rem; line-height: 0.8; color: var(--go); text-shadow: 0 0 22px var(--go-glow); }
+.trio h3 { margin-top: 12px; }
+.trio p { margin-top: 6px; color: var(--muted); font-size: 0.92rem; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.tile { display: grid; grid-template-columns: 42px minmax(0, 1fr) 18px; gap: 14px; align-items: center; padding: 18px; color: var(--ink); cursor: pointer; text-align: left; font: inherit; transition: background 0.2s; }
+.tile:hover { --b: var(--go); background-color: var(--panel-2); }
+.tile .ic { width: 42px; height: 42px; border-radius: var(--r); display: grid; place-items: center; background: var(--panel-2); border: 1px solid var(--line-hi); color: var(--go); }
+.tile .ic svg { width: 22px; height: 22px; }
+.tile b { display: block; font-weight: 700; }
+.tile span { display: block; color: var(--muted); font-size: 0.88rem; line-height: 1.4; margin-top: 2px; }
+.tile > svg { width: 18px; height: 18px; color: var(--dim); }
+
+/* ---------- heart attack check ---------- */
+.stepper { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding-block: 14px 18px; }
+.stepper i { display: block; height: 4px; background: var(--line-hi); border-radius: 2px; transition: background 0.35s, box-shadow 0.35s; }
+.stepper span { display: block; margin-top: 8px; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stepper .now i { background: var(--go); box-shadow: 0 0 10px var(--go-glow); }
+.stepper .now span { color: var(--ink); }
+.stepper .ok i { background: var(--go); opacity: 0.5; }
+.stepper .bad i { background: var(--red); box-shadow: 0 0 10px var(--red-glow); }
+.q-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.step-title { display: flex; align-items: baseline; gap: 12px; }
+.step-title .n { font-family: var(--mono); color: var(--go); font-size: 0.85rem; }
+.step-intro { color: var(--muted); margin-top: 8px; }
+.big2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 18px; }
+.bigopt { text-align: left; padding: 20px; border-radius: var(--r); border: 1px solid var(--line-hi); background: var(--panel-2); color: var(--ink); cursor: pointer; font: inherit; display: grid; gap: 6px; transition: border-color 0.15s, transform 0.1s; }
+.bigopt:hover { border-color: var(--muted); }
+.bigopt b { font-family: var(--display); font-size: 1.8rem; text-transform: uppercase; line-height: 0.95; }
+.bigopt span { color: var(--muted); font-size: 0.92rem; }
+.bigopt.no { border-color: rgba(255, 59, 59, 0.6); background: var(--red-deep); }
+.bigopt.no b { color: #FFD9D6; }
+.chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.chip { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; padding: 12px 14px; border: 1px solid var(--line-hi); border-radius: var(--r); background: var(--panel-2); cursor: pointer; transition: border-color 0.15s, background 0.15s; font-size: 0.95rem; line-height: 1.35; }
+.chip input { margin: 1px 0 0; accent-color: var(--go); width: 18px; height: 18px; }
+.chip:has(input:checked) { border-color: var(--go); background: rgba(46, 232, 138, 0.07); }
+.chip.main { grid-column: 1 / -1; font-weight: 600; }
+.chip.main:has(input:checked) { border-color: var(--red); background: rgba(255, 59, 59, 0.1); }
+.chip.main input { accent-color: var(--red); }
+.seg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.seg button { font: 600 0.88rem var(--body); min-height: 46px; border-radius: var(--r); border: 1px solid var(--line-hi); background: var(--panel-2); color: var(--ink); cursor: pointer; padding: 8px 6px; line-height: 1.2; transition: background 0.15s, border-color 0.15s; }
+.seg button:hover { border-color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--go); border-color: var(--go); color: var(--go-ink); }
+.seg.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.nav-row { display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap; margin-top: 20px; }
+.field { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.field input, select.inline { font: 600 1.05rem var(--mono); background: var(--bg); color: var(--ink); border: 1px solid var(--line-hi); border-radius: var(--r); padding: 10px 12px; min-height: 46px; max-width: 100%; }
+.field input { width: 110px; }
+.side-note { padding: 18px; }
+.side-note h3 { font-size: 1.1rem; }
+.side-note p { color: var(--muted); font-size: 0.92rem; margin-top: 8px; }
+
+/* ---------- result ---------- */
+.verdict { border-radius: var(--r); overflow: hidden; border: 1px solid var(--line-hi); }
+.verdict .stripe { height: 12px; background: repeating-linear-gradient(-45deg, var(--amber) 0 14px, var(--bg) 14px 28px); }
+.verdict.call .stripe, .verdict.cpr .stripe { background: repeating-linear-gradient(-45deg, var(--red) 0 14px, var(--bg) 14px 28px); animation: hazard 1.2s linear infinite; background-size: 40px 40px; }
+@keyframes hazard { to { background-position: 40px 0; } }
+.verdict.none .stripe { background: var(--line-hi); height: 4px; }
+.verdict .body { padding: 26px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: center; background: var(--panel); }
+.verdict .body > * { min-width: 0; }
+.verdict.call .body, .verdict.cpr .body { background: var(--red-deep); }
+.verdict h2 { font-size: clamp(2.2rem, 4.6vw, 3.6rem); }
+.verdict p { margin-top: 12px; font-size: 1.05rem; }
+.callbox { display: grid; gap: 10px; min-width: 0; }
+.callbox .btn { font-size: 1.25rem; min-height: 66px; }
+.callbox .num { font-family: var(--mono); font-size: 0.82rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+.res-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-top: 14px; align-items: start; }
+.timebig { font-family: var(--mono); font-weight: 700; font-size: clamp(2.2rem, 5vw, 3.2rem); color: var(--go); line-height: 1; font-variant-numeric: tabular-nums; text-shadow: 0 0 22px var(--go-glow); }
+.report { font: 0.82rem/1.55 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; white-space: pre-wrap; overflow: auto; max-height: 340px; margin-top: 12px; }
+.do { display: grid; gap: 10px; margin-top: 10px; counter-reset: d; padding: 0; list-style: none; }
+.do li { counter-increment: d; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; }
+.do li::before { content: counter(d); font: 700 0.85rem var(--mono); color: var(--go-ink); background: var(--go); width: 24px; height: 24px; display: grid; place-items: center; border-radius: 2px; }
+.verdict.call ~ .res-grid .do li::before, .do.red li::before { background: var(--red); color: #fff; }
+
+/* ---------- CPR coach ---------- */
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.mode { text-align: left; display: grid; gap: 8px; align-content: start; padding: 20px; border-radius: var(--r); border: 1px solid var(--line-hi); background: var(--panel); color: var(--ink); cursor: pointer; font: inherit; transition: border-color 0.15s, transform 0.15s; }
+.mode:hover { transform: translateY(-2px); border-color: var(--muted); }
+.mode .k { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--go); }
+.mode b { font-family: var(--display); font-size: 2rem; line-height: 0.92; text-transform: uppercase; }
+.mode span:last-child { color: var(--muted); font-size: 0.92rem; }
+.mode.sos { border-color: rgba(255, 59, 59, 0.6); background: var(--red-deep); }
+.mode.sos .k { color: var(--red); }
+.prep { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; margin-top: 18px; align-items: start; }
+.prep .panel { padding: 22px; }
+.toggle { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line-hi); border-radius: var(--r); background: var(--panel-2); cursor: pointer; margin-top: 10px; }
+.toggle input { width: 18px; height: 18px; accent-color: var(--go); margin: 0; }
+.toggle span { font-size: 0.95rem; }
+.toggle small { display: block; color: var(--muted); font-size: 0.84rem; }
+.howto { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; align-items: center; margin-top: 14px; }
+.howto svg { width: 120px; height: 90px; }
+.coach-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+.stage { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border-radius: var(--r); overflow: hidden; background: #000; }
+.stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 6; --b: var(--go); --bl: 18px;
+  background:
+    linear-gradient(var(--b), var(--b)) top left / var(--bl) 2px no-repeat, linear-gradient(var(--b), var(--b)) top left / 2px var(--bl) no-repeat,
+    linear-gradient(var(--b), var(--b)) top right / var(--bl) 2px no-repeat, linear-gradient(var(--b), var(--b)) top right / 2px var(--bl) no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom left / var(--bl) 2px no-repeat, linear-gradient(var(--b), var(--b)) bottom left / 2px var(--bl) no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom right / var(--bl) 2px no-repeat, linear-gradient(var(--b), var(--b)) bottom right / 2px var(--bl) no-repeat; }
+.stage video, .stage > canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.stage .mirror { transform: scaleX(-1); }
+.stage .flash { position: absolute; inset: 0; pointer-events: none; z-index: 5; box-shadow: inset 0 0 0 0 var(--go); transition: box-shadow 0.35s ease-out; }
+.stage .flash.on { box-shadow: inset 0 0 0 5px var(--go), inset 0 0 60px rgba(46, 232, 138, 0.25); transition: none; }
+.stage-note { position: absolute; left: 12px; top: 12px; right: 12px; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: flex; gap: 8px; align-items: center; z-index: 4; }
+.stage-note .r { margin-left: auto; color: var(--ink); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: none; }
+.dot.live { background: var(--red); box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.25); animation: blink 1.2s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0.35; } }
+.cue { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; padding: 18px 16px 16px; background: linear-gradient(to top, rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0)); display: flex; align-items: end; gap: 12px; }
+.cue b { font-family: var(--display); font-size: clamp(1.6rem, 3vw, 2.4rem); text-transform: uppercase; line-height: 0.95; flex: 1; min-width: 0; transition: color 0.2s; }
+.cue.warn b { color: var(--amber); } .cue.bad b { color: var(--red); } .cue.good b { color: var(--go); }
+.cue .tag { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; text-align: right; }
+.banner { position: absolute; left: 12px; right: 12px; top: 40px; z-index: 7; padding: 12px 14px; border-radius: var(--r); background: rgba(255, 178, 36, 0.95); color: #1A1100; font-weight: 600; display: flex; gap: 10px; align-items: center; }
+.banner.aed { background: rgba(46, 232, 138, 0.96); color: var(--go-ink); }
+.banner b { font-family: var(--display); text-transform: uppercase; font-size: 1.3rem; }
+.caption { position: absolute; right: 12px; top: 36px; z-index: 4; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.06em; color: var(--ink); background: rgba(0, 0, 0, 0.6); border: 1px solid var(--line-hi); border-radius: var(--r); padding: 6px 9px; max-width: 60%; text-align: right; }
+.stage-cover { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; text-align: center; padding: 24px; background: radial-gradient(ellipse at 50% 45%, #0F1518, #060809 70%); }
+.stage-cover p { max-width: 40ch; color: var(--muted); }
+.metro { display: grid; place-items: center; }
+.metro i { width: clamp(140px, 20vw, 200px); margin: 0 auto; aspect-ratio: 1; border-radius: 50%; border: 3px solid var(--go); display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: clamp(2rem, 5vw, 3.6rem); color: var(--go); font-style: normal; text-transform: uppercase; box-shadow: 0 0 40px -10px var(--go-glow); }
+.metro i.hit { animation: hit 0.28s ease-out; }
+@keyframes hit { 0% { transform: scale(0.9); background: rgba(46, 232, 138, 0.18); } 100% { transform: none; background: transparent; } }
+.metro p { margin-top: 16px; }
+.readout { display: grid; gap: 12px; min-width: 0; }
+.readout .panel { padding: 16px; }
+.gauges { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 12px; align-items: stretch; }
+.dial { position: relative; }
+.dial svg { width: 100%; display: block; }
+.dial .val { position: absolute; left: 0; right: 0; top: 38%; text-align: center; }
+.dial .val b { display: block; font-family: var(--display); font-weight: 800; font-size: clamp(3rem, 5vw, 4.2rem); line-height: 0.85; font-variant-numeric: tabular-nums; }
+.dial .val span { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; }
+.depth { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; text-align: center; }
+.depth .tube { position: relative; border: 1px solid var(--line-hi); background: var(--panel-2); border-radius: var(--r); min-height: 170px; overflow: hidden; }
+.depth .zone { position: absolute; left: 0; right: 0; background: rgba(46, 232, 138, 0.16); border-top: 1px dashed var(--go); border-bottom: 1px dashed var(--go); }
+.depth .fill { position: absolute; left: 22%; right: 22%; top: 0; height: 0; background: linear-gradient(var(--blue), var(--go)); border-radius: 0 0 3px 3px; transition: height 0.12s linear; }
+.depth .mark { position: absolute; left: 0; right: 0; height: 2px; background: var(--ink); box-shadow: 0 0 8px rgba(255, 255, 255, 0.6); transition: top 0.3s; }
+.depth .ticks { position: absolute; right: 4px; top: 0; bottom: 0; font: 500 0.6rem var(--mono); color: var(--dim); }
+.depth .ticks span { position: absolute; right: 0; transform: translateY(-50%); }
+.cue.hide { display: none; }
+.depth b { font-family: var(--display); font-size: 1.9rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.stat { padding: 10px 10px 9px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel-2); min-width: 0; }
+.stat .k { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat b { display: block; font-family: var(--display); font-size: 1.7rem; line-height: 1.05; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.stat.ok b { color: var(--go); } .stat.warn b { color: var(--amber); } .stat.bad b { color: var(--red); }
+.ctrls { display: flex; gap: 8px; flex-wrap: wrap; }
+.ctrls .btn { flex: 1 1 auto; }
+.strip { margin-top: 14px; padding: 14px 16px; }
+.strip canvas { width: 100%; height: 120px; display: block; margin-top: 8px; }
+.legend { display: flex; gap: 14px; font: 500 0.7rem var(--mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 6px; }
+.sysrow { display: flex; justify-content: space-between; gap: 10px; font-family: var(--mono); font-size: 0.78rem; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.sysrow:last-child { border-bottom: 0; }
+.sysrow .ok { color: var(--go); } .sysrow .no { color: var(--amber); } .sysrow .wait { color: var(--muted); }
+.loadbar { margin-top: 10px; height: 3px; background: var(--line); position: relative; overflow: hidden; }
+.loadbar i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--go); box-shadow: 0 0 8px var(--go-glow); transition: width 0.2s; }
+
+/* ---------- summary ---------- */
+.sum { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 22px; align-items: center; }
+.score { position: relative; width: 220px; height: 220px; }
+.score svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.score circle { fill: none; stroke-width: 12; }
+.score .bg { stroke: var(--line-hi); }
+.score .fg { stroke: var(--go); stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.2,.8,.2,1); }
+.score .val { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.score .val b { font-family: var(--display); font-size: 4.6rem; line-height: 0.85; }
+.score .val span { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; }
+.checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.checks div { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel-2); font-size: 0.92rem; }
+.checks .ic { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font: 700 0.75rem var(--mono); }
+.checks .ok .ic { background: var(--go); color: var(--go-ink); }
+.checks .no .ic { background: var(--amber); color: #1A1100; }
+.checks .mono { color: var(--muted); font-size: 0.82rem; }
+
+/* ---------- science + pitch ---------- */
+.prose { max-width: 72ch; }
+.prose p + p { margin-top: 12px; }
+.pagehead { padding-block: 10px 22px; }
+.pagehead .lead { margin-top: 14px; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; margin-top: 14px; }
+.tbl-wrap { overflow-x: auto; margin-top: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+td.mono { font-size: 0.85rem; }
+.pass { color: var(--go); font-family: var(--mono); font-weight: 700; } .failc { color: var(--red); font-family: var(--mono); font-weight: 700; }
+.refs { padding-left: 1.2em; margin: 10px 0 0; display: grid; gap: 6px; color: var(--muted); font-size: 0.9rem; }
+.pipe { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.pipe .panel b { display: block; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em; color: var(--go); text-transform: uppercase; }
+.pipe .panel p { margin-top: 8px; color: var(--muted); font-size: 0.92rem; }
+.deck { position: relative; height: calc(100vh - var(--bar) - 64px); min-height: 540px; overflow: hidden; }
+#deck:focus { outline: none; }
+.slide { position: absolute; inset: 0; display: grid; align-content: center; gap: 22px; padding: 28px 40px 80px; opacity: 0; pointer-events: none; transform: translateX(30px); transition: opacity 0.45s ease, transform 0.45s cubic-bezier(.2,.8,.2,1); overflow: hidden; }
+.slide.on { opacity: 1; pointer-events: auto; transform: none; }
+.slide.prev { transform: translateX(-30px); }
+.slide.title-slide { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: center; }
+.title-slide > div { display: grid; gap: 22px; min-width: 0; }
+.slide .kicker { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.16em; color: var(--go); text-transform: uppercase; }
+.slide h2 { font-size: clamp(2.7rem, 6vw, 5.4rem); max-width: 18ch; }
+.slide .sub { font-size: clamp(1.05rem, 1.8vw, 1.35rem); color: var(--muted); max-width: 52ch; }
+.slide .scope { width: 100%; max-width: 520px; justify-self: end; }
+.bigstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; max-width: 1000px; }
+.bigstat { padding: 20px; }
+.bigstat b { display: block; font-family: var(--display); font-size: clamp(2.8rem, 5vw, 4.4rem); font-weight: 800; line-height: 0.9; color: var(--go); text-shadow: 0 0 26px var(--go-glow); }
+.bigstat b.r { color: var(--red); text-shadow: 0 0 26px var(--red-glow); }
+.bigstat span { display: block; margin-top: 10px; color: var(--ink); }
+.bigstat cite { display: block; margin-top: 8px; font-style: normal; font-family: var(--mono); font-size: 0.7rem; color: var(--dim); }
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; max-width: 1100px; }
+.flow .panel { padding: 16px; }
+.flow b { display: block; font-family: var(--display); font-size: 1.7rem; text-transform: uppercase; }
+.flow span { display: block; color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+.flow .n { font-family: var(--mono); font-size: 0.72rem; color: var(--go); letter-spacing: 0.1em; }
+.deck-nav { position: absolute; left: 40px; right: 40px; bottom: 18px; display: flex; align-items: center; gap: 14px; }
+.deck-nav .dots { display: flex; gap: 6px; flex: 1; }
+.deck-nav .dots button { flex: 1; height: 4px; border: 0; padding: 0; background: var(--line-hi); cursor: pointer; border-radius: 2px; }
+.deck-nav .dots button[aria-current="true"] { background: var(--go); box-shadow: 0 0 10px var(--go-glow); }
+.deck-nav .count { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); min-width: 48px; text-align: center; }
+
+.footnote { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--dim); font-size: 0.82rem; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 11px 16px; border-radius: var(--r); font-weight: 600; z-index: 90; max-width: calc(100% - 32px); text-align: center; box-shadow: 0 10px 30px -10px #000; }
+
+/* ---------- phone ---------- */
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .rail { display: none; }
+  .status { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .status .brand-m { display: block; width: 26px; height: 26px; flex: none; }
+  .screen { padding: 18px max(16px, env(safe-area-inset-right, 0px)) calc(96px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  .tabbar { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: rgba(6, 8, 9, 0.96); border-top: 1px solid var(--line); padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .tabbar .navbtn { padding: 8px 2px 6px; font-size: 0.66rem; }
+  .tabbar .navbtn[aria-current="page"]::before { left: 22%; right: 22%; top: -7px; bottom: auto; width: auto; height: 3px; }
+  .launch, .q-grid, .two, .two[style], .res-grid, .verdict .body, .prep, .coach-grid, .sum { grid-template-columns: minmax(0, 1fr) !important; }
+  .launch { min-height: 0; gap: 8px; }
+  .launch .scope { max-width: 360px; width: 100%; justify-self: center; order: -1; margin-bottom: -6px; }
+  .tiles, .trio, .pipe, .bigstats, .modes { grid-template-columns: minmax(0, 1fr); }
+  .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .urgent { grid-template-columns: auto minmax(0, 1fr); }
+  .urgent .btn { grid-column: 1 / -1; }
+  .deck { height: auto; min-height: calc(100vh - var(--bar) - 130px); }
+  .slide { padding: 10px 2px 70px; align-content: start; }
+  .slide.title-slide { grid-template-columns: minmax(0, 1fr); align-content: start; }
+  .slide .scope { display: none; }
+  .deck-nav { left: 0; right: 0; }
+  .score { margin: 0 auto; }
+  .col-a { display: contents; }
+  .col-a .stage { order: 1; } .coach-grid .readout { order: 2; } .col-a .strip { order: 3; margin-top: 0; }
+}
+@media (max-width: 560px) {
+  .clock .label { display: none; }
+  .clock b { font-size: 1rem; }
+  .callbtn .lbl { display: none; }
+  .status .where b { font-size: 1.3rem; }
+  .actions, .big2, .chips, .checks { grid-template-columns: minmax(0, 1fr); }
+  .act b { font-size: 1.8rem; }
+  .seg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gauges { grid-template-columns: minmax(0, 1fr) 84px; }
+  .stepper span { font-size: 0.56rem; letter-spacing: 0.04em; }
+  .howto { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .act.sos::after, .dot.live, .verdict.call .stripe, .verdict.cpr .stripe, .metro i.hit { animation: none; }
+  .slide, .stepper i, .depth .fill, .score .fg { transition: none; }
+}
+</style>
+
+<div class="app">
+  <aside class="rail" aria-label="Main">
+    <a class="logo" href="#home" aria-label="Restart home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="7" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M5 17h6l2.5-6 4 11 2.5-5H27" fill="none" stroke="var(--go)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg></a>
+    <nav style="display:grid;gap:4px" aria-label="Sections">
+      <a class="navbtn" href="#home" data-view="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg>Home</a>
+      <a class="navbtn" href="#heart" data-view="heart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M8 12h2l1-2 2 4 1-2h2"/></svg>Check</a>
+      <a class="navbtn sos" href="#cpr" data-view="cpr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 4h6v5h5v6h-5v5H9v-5H4V9h5z"/></svg>CPR</a>
+      <a class="navbtn" href="#science" data-view="science"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></svg>Science</a>
+      <a class="navbtn" href="#pitch" data-view="pitch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M12 16v4M8 20h8M10 8l4 2-4 2z"/></svg>Pitch</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>ON-DEVICE</div>
+  </aside>
+
+  <div class="main">
+    <header class="status">
+      <div class="where">
+        <svg class="brand-m" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="7" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M5 17h6l2.5-6 4 11 2.5-5H27" fill="none" stroke="var(--go)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <b id="where">Restart</b>
+      </div>
+      <div class="clock" id="clock" hidden><span class="label" id="clock-l">Since symptoms began</span><b id="clock-v">--:--</b></div>
+      <a class="btn btn-red btn-sm callbtn" id="call-top" href="tel:911"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg><span class="lbl">Call</span> <span class="num-top">911</span></a>
+    </header>
+
+    <main class="screen">
+      <!-- ============================================================ HOME -->
+      <section class="view" id="view-home" aria-labelledby="h-home">
+        <div class="launch">
+          <div>
+            <p class="label"><span style="color:var(--red)">●</span>&nbsp; Heart attack · cardiac arrest · on-device AI</p>
+            <h1 id="h-home" style="margin-top:14px">Keep a heart going until help&nbsp;arrives.</h1>
+            <p class="lead">Ischaemic heart disease kills more people than anything else on Earth. Restart helps at the two moments that decide who survives: spotting a heart attack in time, and doing CPR well enough to matter, with AI that watches your compressions and coaches you out loud.</p>
+            <div class="actions">
+              <button class="act sos" type="button" data-cpr="emergency"><span class="k">Unresponsive · not breathing normally</span><b>Start CPR now</b><span>Metronome and voice start at once. Camera coaching is optional.</span></button>
+              <button class="act chk" type="button" data-go="heart"><span class="k">Chest pain · warning signs</span><b>Heart attack check</b><span>Seven questions, a clear answer, and a report for the paramedics.</span></button>
+            </div>
+            <div class="sub-actions">
+              <button class="btn btn-line" type="button" data-cpr="practice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="9" width="16" height="9" rx="4"/><path d="M12 4v5"/></svg>Practise on a pillow</button>
+              <button class="btn btn-line" type="button" data-cpr="demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/></svg>Watch the AI coach</button>
+            </div>
+          </div>
+          <div class="scope hud">
+            <canvas class="gl" id="hero-heart" role="img" aria-label="Wireframe heart beating in time with an ECG trace, with the coronary arteries drawn in red and a blockage marked on one of them"></canvas>
+            <canvas class="ecg" id="hero-ecg" aria-hidden="true"></canvas>
+            <div class="tl">Coronary map<br><b>LAD · RCA</b></div>
+            <div class="tr">Rhythm<br><b id="hero-bpm">72</b> bpm</div>
+            <div class="bl">Blockage<br><b class="r">LAD · mid</b></div>
+            <div class="br">Pose AI<br><b>on-device</b></div>
+          </div>
+        </div>
+
+        <div class="urgent" role="note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18h.01"/></svg>
+          <div><b>Collapsed and only gasping? That's cardiac arrest.</b><p>Gasping isn't normal breathing. Call, then push hard and fast in the centre of the chest. Don't stop to check for a pulse.</p></div>
+          <a class="btn btn-red call-link" href="tel:911">Call <span class="num-txt">911</span></a>
+        </div>
+
+        <div class="trio">
+          <div class="panel"><div class="n">01</div><h3>Recognise</h3><p>The heart attack signs people talk themselves out of, including the ones without chest pain that are common in women, older people and people with diabetes.</p></div>
+          <div class="panel"><div class="n">02</div><h3>Call</h3><p>A clear "call now" when it matters, a clock from when symptoms began, and a handover report for the paramedics.</p></div>
+          <div class="panel"><div class="n">03</div><h3>Push</h3><p>Body tracking measures rate, depth, recoil and locked elbows on every compression, and says the one fix that matters most.</p></div>
+        </div>
+        <div class="tiles">
+          <button class="tile panel" type="button" data-go="pitch"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M12 16v4M8 20h8M10 8l4 2-4 2z"/></svg></span><span><b>Why Restart exists</b><span>The problem, the idea and the evidence, as a short pitch.</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+          <button class="tile panel" type="button" data-go="science"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span><span><b>The science</b><span>How a camera measures compressions, with live validation.</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+          <button class="tile panel" type="button" data-cpr="practice"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v3M5.6 5.6l2 2M3 12h3M18.4 5.6l-2 2M21 12h-3"/><circle cx="12" cy="14" r="5"/></svg></span><span><b>One-minute practice</b><span>Score your CPR on a pillow. Best: <span class="mono" id="best-score" style="display:inline">--</span></span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+        </div>
+      </section>
+
+      <!-- ============================================================ HEART ATTACK CHECK -->
+      <section class="view" id="view-heart" aria-labelledby="h-heart" hidden>
+        <p class="label" id="h-heart">Heart attack check</p>
+        <div class="stepper" id="hstepper" aria-hidden="true"><div data-s="awake"><i></i><span>Awake?</span></div><div data-s="signs"><i></i><span>Signs</span></div><div data-s="details"><i></i><span>Details</span></div><div data-s="result"><i></i><span>Result</span></div></div>
+
+        <div class="hstep" data-step="awake">
+          <div class="step-title"><span class="n">01</span><h2>Are they awake and breathing normally?</h2></div>
+          <p class="step-intro">If you're checking yourself, choose the first answer.</p>
+          <div class="big2">
+            <button class="bigopt" type="button" id="awake-yes"><b>Yes, awake</b><span>Talking, or at least responding, and breathing normally.</span></button>
+            <button class="bigopt no" type="button" id="awake-no"><b>No</b><span>Won't wake up, not breathing, or only gasping. Go straight to CPR.</span></button>
+          </div>
+        </div>
+
+        <div class="hstep" data-step="signs" hidden>
+          <div class="q-grid">
+            <div class="panel">
+              <div class="step-title"><span class="n">02</span><h2>What are they feeling?</h2></div>
+              <p class="step-intro">Tick everything, even if it's mild or comes and goes.</p>
+              <div class="chips" id="sym-chips"></div>
+              <h3 style="margin-top:20px">When did it start?</h3>
+              <div class="seg" id="onset" role="group" aria-label="When symptoms started">
+                <button type="button" data-min="2" aria-pressed="false">Just now</button>
+                <button type="button" data-min="15" aria-pressed="false">5–30 min ago</button>
+                <button type="button" data-min="60" aria-pressed="false">30 min – 2 h</button>
+                <button type="button" data-min="180" aria-pressed="false">Over 2 h</button>
+                <button type="button" data-min="-1" aria-pressed="false">Comes and goes</button>
+              </div>
+              <div class="nav-row"><button class="btn btn-line" type="button" data-hgo="awake">Back</button><button class="btn btn-go" type="button" data-hgo="details">Next</button></div>
+            </div>
+            <div class="panel side-note">
+              <h3>Not always chest pain</h3>
+              <p>Many heart attacks start slowly, with mild pain or discomfort. Women are more likely than men to have shortness of breath, nausea or vomiting, and back or jaw pain, with or without chest pain.</p>
+              <p>If you think it might be a heart attack, it's always right to call.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="hstep" data-step="details" hidden>
+          <div class="q-grid">
+            <div class="panel">
+              <div class="step-title"><span class="n">03</span><h2>A little about them</h2></div>
+              <p class="step-intro">These change how cautious Restart is. All optional.</p>
+              <div class="field"><label for="age">Age</label><input type="number" id="age" min="1" max="120" inputmode="numeric" placeholder="--"></div>
+              <h3 style="margin-top:18px">Who is this for?</h3>
+              <div class="seg two" id="whofor" role="group" aria-label="Who is this for"><button type="button" data-v="self" aria-pressed="true">Me</button><button type="button" data-v="other" aria-pressed="false">Someone else</button></div>
+              <h3 style="margin-top:18px">Any of these?</h3>
+              <div class="chips" id="risk-chips"></div>
+              <div class="nav-row"><button class="btn btn-line" type="button" data-hgo="signs">Back</button><button class="btn btn-go" type="button" data-hgo="result">See the result</button></div>
+            </div>
+            <div class="panel side-note">
+              <h3>Why ask?</h3>
+              <p>Diabetes, high blood pressure, smoking and previous heart disease make a heart attack more likely, and people with diabetes often feel less chest pain. With one of these, even a single warning sign means call.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="hstep" data-step="result" hidden>
+          <div class="verdict" id="verdict"><div class="stripe"></div><div class="body">
+            <div><h2 id="v-title">Result</h2><p id="v-body"></p></div>
+            <div class="callbox">
+              <a class="btn btn-red call-link" id="v-call" href="tel:911">Call <span class="num-txt">911</span> now</a>
+              <div class="num"><span>Emergency number</span><select class="inline" id="num-select" aria-label="Emergency number"><option value="911">911 · US, Canada</option><option value="999">999 · UK</option><option value="112">112 · EU, India, many others</option><option value="000">000 · Australia</option><option value="111">111 · New Zealand</option><option value="119">119 · Japan, Korea</option><option value="120">120 · China</option></select></div>
+            </div>
+          </div></div>
+          <div class="res-grid">
+            <div class="panel">
+              <h3>While you wait</h3>
+              <ol class="do" id="v-actions"></ol>
+              <div class="btn-group" style="margin-top:18px"><button class="btn btn-red" type="button" data-cpr="emergency">They collapsed: start CPR</button></div>
+            </div>
+            <div class="panel">
+              <p class="label">Since symptoms began</p>
+              <div class="timebig" id="r-time" style="margin-top:10px">--</div>
+              <p style="margin-top:10px" class="muted" id="r-time-t">Heart muscle starts to die within minutes of a blocked artery. Opening it fast saves muscle, and lives.</p>
+            </div>
+          </div>
+          <div class="panel" style="margin-top:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h3>Handover report</h3><div class="btn-group"><button class="btn btn-line btn-sm" type="button" id="share-report">Share</button><button class="btn btn-line btn-sm" type="button" id="copy-report">Copy</button></div></div>
+            <div class="report" id="report"></div>
+            <div class="btn-group" style="margin-top:14px"><button class="btn btn-line btn-sm" type="button" id="h-again">Check again</button><button class="btn btn-line btn-sm" type="button" data-go="home">Done</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ CPR -->
+      <section class="view" id="view-cpr" aria-labelledby="h-cpr" hidden>
+        <!-- choose a mode -->
+        <div class="cstep" data-step="choose">
+          <p class="label" id="h-cpr">CPR coach</p>
+          <h2 style="margin-top:10px">Hands-only CPR, coached by AI</h2>
+          <p class="lead" style="margin-top:12px">Prop the phone on the floor about two metres to the side, so it sees you from the side: head, arms and hips. Restart tracks your body and measures every compression.</p>
+          <div class="modes">
+            <button class="mode sos" type="button" data-cpr="emergency"><span class="k">Real emergency</span><b>Someone collapsed</b><span>Call first. The metronome starts at once; the camera joins if it can.</span></button>
+            <button class="mode" type="button" data-cpr="practice"><span class="k">Practice · 60 s</span><b>Practise on a pillow</b><span>A firm cushion on the floor. Get a score out of 100 and what to fix.</span></button>
+            <button class="mode" type="button" data-cpr="demo"><span class="k">Demo · no camera</span><b>Watch the coach</b><span>A simulated rescuer makes common mistakes and the real analysis corrects them.</span></button>
+          </div>
+        </div>
+
+        <!-- emergency / practice preparation -->
+        <div class="cstep" data-step="prep" hidden>
+          <p class="label" id="prep-k">Emergency</p>
+          <div class="prep">
+            <div class="panel" id="prep-main"></div>
+            <div class="panel">
+              <h3>Camera coaching</h3>
+              <label class="toggle"><input type="checkbox" id="use-cam" checked><span>Use the camera<small>Side view, about 2 m away, whole upper body in frame.</small></span></label>
+              <label class="toggle"><input type="checkbox" id="use-voice" checked><span>Voice prompts<small>Spoken corrections and the two-minute swap reminder.</small></span></label>
+              <div class="howto"><svg viewBox="0 0 120 90" aria-hidden="true"><rect x="1" y="1" width="118" height="88" rx="4" fill="none" stroke="var(--line-hi)"/><path d="M14 74h92" stroke="var(--dim)" stroke-width="2"/><rect x="58" y="66" width="44" height="8" rx="4" fill="var(--panel-2)" stroke="var(--muted)"/><circle cx="104" cy="66" r="5" fill="none" stroke="var(--muted)"/><circle cx="46" cy="22" r="6" fill="none" stroke="var(--go)" stroke-width="2"/><path d="M46 28v20l16 18M50 32l10 16v18M46 48l-14 8v18" fill="none" stroke="var(--go)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="8" y="60" width="6" height="12" rx="1" fill="none" stroke="var(--ink)"/><path d="M14 64h10" stroke="var(--go)" stroke-dasharray="2 2"/></svg><p class="muted" style="font-size:0.9rem">Phone on its side against a shoe or a wall. Hips, shoulders, elbows and wrists all need to be visible.</p></div>
+              <div style="margin-top:12px">
+                <div class="sysrow"><span>Body tracking model</span><span class="wait" id="sys-pose">loads when needed</span></div>
+                <div class="sysrow"><span>Camera</span><span class="wait" id="sys-cam">asks when needed</span></div>
+              </div>
+              <div class="loadbar"><i id="model-bar"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- live coaching -->
+        <div class="cstep" data-step="live" hidden>
+          <div class="coach-grid">
+            <div class="col-a">
+              <div class="stage" id="stage">
+                <video id="video" playsinline muted class="mirror"></video>
+                <canvas id="overlay"></canvas>
+                <div class="flash" id="flash"></div>
+                <div class="stage-note"><span class="dot" id="live-dot"></span><span id="stage-l">Starting</span><span class="r mono" id="stage-r"></span></div>
+                <div class="caption" id="caption" hidden></div>
+                <div class="banner" id="banner" hidden></div>
+                <div class="stage-cover metro" id="metro" hidden><div><i id="metro-i">Push</i><p id="metro-t">Push to the beat. Hard and fast, in the centre of the chest.</p></div></div>
+                <div class="cue" id="cue"><b id="cue-t">Push hard and fast</b><span class="tag" id="cue-tag">AI coach</span></div>
+              </div>
+              <div class="panel strip">
+                <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span class="label">Every compression</span><span class="legend"><span><i style="background:var(--go)"></i>Rate</span><span><i style="background:var(--blue)"></i>Depth</span><span><i style="background:rgba(46,232,138,.25);height:8px"></i>Target</span></span></div>
+                <canvas id="strip" role="img" aria-label="Rate and depth of each compression over time, with the target bands shaded"></canvas>
+              </div>
+            </div>
+            <div class="readout">
+              <div class="panel">
+                <div class="gauges">
+                  <div class="dial">
+                    <svg viewBox="0 0 200 150" aria-hidden="true">
+                      <path d="M24 130 A82 82 0 1 1 176 130" fill="none" stroke="var(--line-hi)" stroke-width="12" stroke-linecap="round"/>
+                      <path id="dial-zone" fill="none" stroke="rgba(46,232,138,.35)" stroke-width="12"/>
+                      <g id="dial-ticks"></g>
+                      <g id="needle" style="transform-origin:100px 99.2px;transition:transform .25s cubic-bezier(.2,.8,.2,1)"><path d="M100 8 L106 -2 L94 -2 Z" fill="var(--ink)" transform="translate(0 4)"/><line x1="100" y1="10" x2="100" y2="30" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/></g>
+                    </svg>
+                    <div class="val"><b id="rate-v">--</b><span>per min</span></div>
+                  </div>
+                  <div class="depth">
+                    <span class="label">Depth</span>
+                    <div class="tube" id="tube"><div class="zone" id="dzone"></div><div class="fill" id="dfill"></div><div class="mark" id="dmark" hidden></div><div class="ticks" id="dticks"></div></div>
+                    <div><b id="depth-v">--</b><span class="label"> cm</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="stats">
+                <div class="stat" id="st-count"><div class="k">Pushes</div><b id="count-v">0</b></div>
+                <div class="stat" id="st-time"><div class="k" id="time-k">Time</div><b id="time-v">0:00</b></div>
+                <div class="stat" id="st-recoil"><div class="k">Recoil</div><b id="recoil-v">--</b></div>
+                <div class="stat" id="st-elbow"><div class="k">Elbows</div><b id="elbow-v">--</b></div>
+              </div>
+              <div class="panel" style="padding:14px">
+                <div class="ctrls">
+                  <button class="btn btn-line btn-sm" type="button" id="t-metro" aria-pressed="true">Metronome</button>
+                  <button class="btn btn-line btn-sm" type="button" id="t-voice" aria-pressed="true">Voice</button>
+                  <button class="btn btn-line btn-sm" type="button" id="t-aed">AED is here</button>
+                </div>
+                <div class="btn-group" style="margin-top:8px"><button class="btn btn-line" type="button" id="c-stop" style="flex:1">Stop</button></div>
+                <p class="muted" style="font-size:0.84rem;margin-top:10px" id="live-note">Keep going until paramedics take over, an AED tells you to stop, or the person starts breathing normally.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- summary -->
+        <div class="cstep" data-step="summary" hidden>
+          <p class="label" id="sum-k">Practice result</p>
+          <div class="panel" style="margin-top:12px">
+            <div class="sum">
+              <div class="score"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="52"/><circle class="fg" id="score-ring" cx="60" cy="60" r="52" stroke-dasharray="326.7" stroke-dashoffset="326.7"/></svg><div class="val"><b id="score-v">0</b><span>score / 100</span></div></div>
+              <div>
+                <h2 id="sum-title">Good CPR</h2>
+                <p class="muted" style="margin-top:10px" id="sum-body"></p>
+                <div class="checks" id="sum-checks"></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel strip"><span class="label">Your compressions</span><canvas id="sum-strip" role="img" aria-label="Rate and depth of each compression in the session"></canvas></div>
+          <div class="btn-group" style="margin-top:14px"><button class="btn btn-go" type="button" id="sum-again">Go again</button><button class="btn btn-line" type="button" data-cpr="demo" id="sum-demo">Watch the demo</button><button class="btn btn-line" type="button" data-go="home">Done</button></div>
+        </div>
+      </section>
+
+      <!-- ============================================================ SCIENCE -->
+      <section class="view" id="view-science" aria-labelledby="h-science" hidden>
+        <div class="pagehead">
+          <p class="label">Methods and validation</p>
+          <h2 id="h-science" style="margin-top:10px">How Restart works</h2>
+          <p class="lead">Everything runs in the browser. Video never leaves the phone. The numbers on this page are computed live, by the same code the coach uses.</p>
+        </div>
+        <div class="pipe">
+          <div class="panel"><b>01 · Track</b><p>MediaPipe Pose finds 33 body points in each camera frame, on the device. Restart uses shoulders, elbows, wrists and hips.</p></div>
+          <div class="panel"><b>02 · Find each push</b><p>Wrist height is measured against the hips, which barely move, cancelling camera shake. A hysteresis detector marks every top and bottom.</p></div>
+          <div class="panel"><b>03 · Measure</b><p>The rescuer's own arm is the ruler: shoulder to wrist is about 57 cm. Rate from the time between pushes; recoil from how far the hands rise back to their resting height.</p></div>
+          <div class="panel"><b>04 · Coach</b><p>One correction at a time, in priority order: keep pushing, rate, depth, elbows, recoil. Spoken, on screen, and with a 110/min metronome.</p></div>
+        </div>
+        <div class="two" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)">
+          <div class="panel">
+            <h3>Live validation</h3>
+            <p class="muted" style="margin-top:8px">Simulated rescuers with known technique, including camera shake, a slow 15 fps phone, near and far cameras, and mistakes. The coach should measure the truth and give the right correction.</p>
+            <div class="tbl-wrap"><table><thead><tr><th>Simulated rescuer</th><th>Truth</th><th>Restart measured</th><th>Coach says</th><th></th></tr></thead><tbody id="val-body"></tbody></table></div>
+            <p class="muted" style="margin-top:10px;font-size:0.88rem" id="val-sum"></p>
+          </div>
+          <div class="panel">
+            <h3>Heart attack check rules</h3>
+            <p class="muted" style="margin-top:8px">Built on the American Heart Association's warning signs. It always errs toward calling.</p>
+            <div class="tbl-wrap"><table><thead><tr><th>Situation</th><th>Advice</th></tr></thead><tbody>
+              <tr><td>Unresponsive, not breathing normally or only gasping</td><td><b style="color:var(--red)">Call and start CPR</b></td></tr>
+              <tr><td>Any chest pain, pressure, squeezing or fullness</td><td><b style="color:var(--red)">Call now</b></td></tr>
+              <tr><td>Two or more other warning signs</td><td><b style="color:var(--red)">Call now</b></td></tr>
+              <tr><td>One sign, plus a risk factor or age 50+</td><td><b style="color:var(--red)">Call now</b></td></tr>
+              <tr><td>One sign, no risk factors</td><td><b style="color:var(--amber)">Can't rule out: call if new</b></td></tr>
+            </tbody></table></div>
+            <p class="muted" style="margin-top:10px;font-size:0.88rem">Never: "drive to hospital", an aspirin dose, or "you're fine".</p>
+          </div>
+        </div>
+        <div class="two">
+          <div class="panel prose">
+            <h3>Targets (AHA 2025, adults)</h3>
+            <ul class="list" style="margin-top:10px">
+              <li><span><b>Rate</b> 100–120 compressions per minute.</span></li>
+              <li><span><b>Depth</b> at least 5 cm, no more than 6 cm.</span></li>
+              <li><span><b>Recoil</b> let the chest come all the way back up; don't lean.</span></li>
+              <li><span><b>Pauses</b> as few and as short as possible, under 10 seconds.</span></li>
+              <li><span><b>Swap</b> rescuers about every 2 minutes; quality drops with tiredness.</span></li>
+            </ul>
+          </div>
+          <div class="panel prose">
+            <h3>Honest limits</h3>
+            <p class="muted" style="margin-top:10px">Depth from one camera is approximate (about ±1 cm), because it assumes an average arm length and a side view. It is tested on simulated rescuers, not yet on manikins with depth sensors, which is the next step. Restart is a prototype, not a medical device. It never delays compressions: the metronome and voice start before the camera does, and work without it.</p>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <h3>References</h3>
+          <ol class="refs">
+            <li>World Health Organization. Heart attack fact sheet: ischaemic heart disease caused 9 million deaths in 2021, about 13% of all deaths, and is the leading cause of death.</li>
+            <li>American Heart Association. 2025 Guidelines for CPR and Emergency Cardiovascular Care: adult basic life support.</li>
+            <li>American Heart Association. About 350,000 out-of-hospital cardiac arrests a year in the US; about 90% are fatal; bystander CPR can double or triple survival.</li>
+            <li>American Heart Association, Mission: Lifeline. Warning signs of a heart attack, and differences in symptoms in women.</li>
+            <li>Lugaresi C. et al. MediaPipe: a framework for building perception pipelines (2019); BlazePose body landmarks.</li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- ============================================================ PITCH -->
+      <section class="view" id="view-pitch" aria-labelledby="h-pitch" hidden>
+        <h2 id="h-pitch" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Pitch</h2>
+        <div class="deck" id="deck" tabindex="0" aria-roledescription="slide deck">
+          <article class="slide title-slide on" aria-label="Title">
+            <div>
+              <p class="kicker">DSH Hacks V2 · AI × Healthcare</p>
+              <h2>The world's #1 killer, met at the moment it strikes.</h2>
+              <p class="sub">Restart turns any phone into a heart attack check and an AI CPR coach that watches your hands and tells you how to push.</p>
+              <div class="btn-group"><button class="btn btn-go" type="button" data-cpr="demo">Watch the AI coach</button><button class="btn btn-line" type="button" data-deck="next">Next</button></div>
+            </div>
+            <div class="scope hud"><canvas class="gl" id="pitch-heart" aria-hidden="true"></canvas><canvas class="ecg" id="pitch-ecg" aria-hidden="true"></canvas></div>
+          </article>
+          <article class="slide" aria-label="The problem">
+            <p class="kicker">01 · The problem</p>
+            <h2>Ischaemic heart disease kills more people than anything else.</h2>
+            <div class="bigstats">
+              <div class="bigstat panel"><b>9M</b><span>deaths in 2021, about 13% of all deaths worldwide</span><cite>WHO, 2024</cite></div>
+              <div class="bigstat panel"><b class="r">90%</b><span>of the ~350,000 out-of-hospital cardiac arrests in the US each year are fatal</span><cite>American Heart Association</cite></div>
+              <div class="bigstat panel"><b>2–3×</b><span>higher survival when a bystander starts CPR straight away</span><cite>American Heart Association</cite></div>
+            </div>
+          </article>
+          <article class="slide" aria-label="The gap">
+            <p class="kicker">02 · The gap</p>
+            <h2>The help is there. People hesitate, or do it wrong.</h2>
+            <ul class="list" style="max-width:64ch;font-size:1.12rem">
+              <li><span><b>Heart attacks get waited out.</b> Symptoms are often mild, and without chest pain in many women, older people and people with diabetes.</span></li>
+              <li><span><b>Most arrests get no CPR.</b> People don't act more than half the time; they freeze, or fear doing it wrong.</span></li>
+              <li><span><b>CPR that is done is often too slow or too shallow,</b> and gets worse within two minutes as the rescuer tires. Nobody is there to say so.</span></li>
+            </ul>
+          </article>
+          <article class="slide" aria-label="The solution">
+            <p class="kicker">03 · The solution</p>
+            <h2>Restart: recognise, call, push.</h2>
+            <div class="flow">
+              <div class="panel"><span class="n">01</span><b>Check</b><span>Seven questions. Errs toward calling. Never says "you're fine".</span></div>
+              <div class="panel"><span class="n">02</span><b>Call</b><span>One tap. Clock from onset. Handover report.</span></div>
+              <div class="panel"><span class="n">03</span><b>Track</b><span>Pose AI follows shoulders, elbows, wrists, hips.</span></div>
+              <div class="panel"><span class="n">04</span><b>Measure</b><span>Rate, depth, recoil, locked elbows, pauses.</span></div>
+              <div class="panel"><span class="n">05</span><b>Coach</b><span>The one fix that matters, out loud, every few seconds.</span></div>
+            </div>
+          </article>
+          <article class="slide" aria-label="What's new">
+            <p class="kicker">04 · What's new</p>
+            <h2>A CPR feedback device, without the device.</h2>
+            <ul class="list" style="max-width:66ch;font-size:1.08rem">
+              <li><span><b>Your arm is the ruler:</b> depth from a single camera, scaled by the rescuer's own shoulder-to-wrist length.</span></li>
+              <li><span><b>Hips as an anchor:</b> wrist motion measured against the hips cancels a shaky, propped-up phone.</span></li>
+              <li><span><b>Never delays a push:</b> metronome and voice start instantly; the camera joins when it's ready.</span></li>
+              <li><span><b>Practice that sticks:</b> a one-minute pillow session scored out of 100, any time, for free.</span></li>
+            </ul>
+          </article>
+          <article class="slide" aria-label="Evidence">
+            <p class="kicker">05 · Does it work?</p>
+            <h2>Accurate on simulated rescuers, live in this app.</h2>
+            <div class="bigstats">
+              <div class="bigstat panel"><b id="ev-tests">29/29</b><span>automated tests pass: measurement, coaching and the heart attack rules</span><cite>test/cpr.test.js</cite></div>
+              <div class="bigstat panel"><b id="ev-rate">±0.2</b><span>compressions/min mean rate error across 11 simulated rescuers</span><cite>shake, 15 fps, near and far</cite></div>
+              <div class="bigstat panel"><b id="ev-depth">±0.1 cm</b><span>mean depth error on the same rescuers; mistakes caught every time</span><cite>Science tab, computed live</cite></div>
+            </div>
+          </article>
+          <article class="slide" aria-label="Impact">
+            <p class="kicker">06 · Impact and next steps</p>
+            <h2>More people who act. Better CPR when they do.</h2>
+            <ul class="list" style="max-width:66ch;font-size:1.08rem">
+              <li><span><b>Who:</b> families of people with heart disease, schools and workplaces without CPR manikins, anyone with a phone.</span></li>
+              <li><span><b>Next:</b> validate depth against sensor manikins, add infant CPR, translate, and link to dispatcher-assisted CPR.</span></li>
+              <li><span><b>Honest limits:</b> a prototype, not a medical device. It supports the call and the push; it never replaces either.</span></li>
+            </ul>
+            <div class="btn-group"><button class="btn btn-go" type="button" data-cpr="practice">Try a practice round</button><button class="btn btn-line" type="button" data-go="science">See the science</button></div>
+          </article>
+          <div class="deck-nav">
+            <button class="btn btn-line btn-sm" type="button" data-deck="prev" aria-label="Previous slide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+            <div class="dots" id="deck-dots"></div>
+            <span class="count" id="deck-count">1 / 7</span>
+            <button class="btn btn-line btn-sm" type="button" data-deck="next" aria-label="Next slide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+          </div>
+        </div>
+      </section>
+
+      <div class="footnote"><span>Restart · heart attack check and CPR coach · prototype, not a medical device.</span><span>Video stays on this device.</span></div>
+    </main>
+  </div>
+
+  <nav class="tabbar" aria-label="Sections">
+    <a class="navbtn" href="#home" data-view="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg>Home</a>
+    <a class="navbtn" href="#heart" data-view="heart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M8 12h2l1-2 2 4 1-2h2"/></svg>Check</a>
+    <a class="navbtn sos" href="#cpr" data-view="cpr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 4h6v5h5v6h-5v5H9v-5H4V9h5z"/></svg>CPR</a>
+    <a class="navbtn" href="#science" data-view="science"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></svg>Science</a>
+    <a class="navbtn" href="#pitch" data-view="pitch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M12 16v4M8 20h8M10 8l4 2-4 2z"/></svg>Pitch</a>
+  </nav>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>window.THREE || document.write('<script src="vendor/three/three.min.js"><\/script>');</script>
+<script>/* Restart engine
+ *  1. CPR coach: measures chest compressions from MediaPipe PoseLandmarker output (33 body points per
+ *     camera frame): rate, approximate depth, full chest recoil, locked elbows, pauses and the share of time
+ *     spent compressing, and picks the single most useful spoken correction.
+ *  2. Heart attack check: maps reported symptoms to clear advice, always erring toward calling.
+ * Pure functions with no DOM: runs in the browser (window.Restart) and in Node tests.
+ *
+ * Targets (AHA 2025 adult CPR): 100–120 compressions/min, 5–6 cm deep, full recoil, pauses under 10 s.
+ *
+ * Depth from a single camera has no absolute scale, so the rescuer's own arm is the ruler: the distance
+ * from shoulder to wrist with straight arms is taken as ARM_CM (57 cm, an adult average). Depth is the
+ * wrist's vertical travel per compression divided by that arm length in pixels. Expect about ±1 cm.
+ */
+(function (root) {
+  "use strict";
+  const ARM_CM = 57;
+  const TARGET = { rateLo: 100, rateHi: 120, depthLo: 5, depthHi: 6, elbowMin: 155, pauseMax: 10 };
+  const median = (a) => { if (!a.length) return NaN; const b = Array.from(a).sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+  const mean = (a) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const P = { shL: 11, shR: 12, elL: 13, elR: 14, wrL: 15, wrR: 16, hipL: 23, hipR: 24 };
+
+  function angle(a, b, c) {   // angle at b, degrees
+    const v1 = [a.x - b.x, a.y - b.y], v2 = [c.x - b.x, c.y - b.y];
+    const d = Math.hypot(...v1) * Math.hypot(...v2);
+    return d ? (Math.acos(clamp((v1[0] * v2[0] + v1[1] * v2[1]) / d, -1, 1)) * 180) / Math.PI : NaN;
+  }
+
+  /** One pose frame -> the measurements the coach needs, in pixels. Uses whichever arm is better seen. */
+  function poseFrame(lm, w, h) {
+    if (!lm || lm.length < 17) return null;
+    const px = (i) => ({ x: lm[i].x * w, y: lm[i].y * h, v: lm[i].visibility == null ? 1 : lm[i].visibility });
+    const arms = [[P.shL, P.elL, P.wrL], [P.shR, P.elR, P.wrR]].map(([s, e, wr]) => {
+      const S = px(s), E = px(e), W = px(wr);
+      return { S, E, W, vis: Math.min(S.v, E.v, W.v), elbow: angle(S, E, W), len: Math.hypot(S.x - E.x, S.y - E.y) + Math.hypot(E.x - W.x, E.y - W.y) };
+    }).filter((a) => a.vis > 0.6 && a.len > 5);   // hidden joints are guessed by the model and jitter: ignore them
+    if (!arms.length) return null;
+    arms.sort((a, b) => b.vis - a.vis);
+    const both = arms.length === 2 && arms[1].vis > 0.6;
+    const wristY = both ? (arms[0].W.y + arms[1].W.y) / 2 : arms[0].W.y;
+    const shoulderY = both ? (arms[0].S.y + arms[1].S.y) / 2 : arms[0].S.y;
+    const elbow = both ? Math.min(arms[0].elbow, arms[1].elbow) : arms[0].elbow;
+    // hips stay almost still while kneeling: measuring the wrist against them cancels camera shake
+    const hips = [P.hipL, P.hipR].map(px).filter((q) => q.v > 0.5);
+    const hipY = hips.length ? hips.reduce((a, q) => a + q.y, 0) / hips.length : null;
+    return { wristY, shoulderY, elbow, armPx: arms[0].len, wristX: arms[0].W.x, hipY };
+  }
+
+  /**
+   * createSession(): feed pose frames in time order with push(t, lm, w, h) (or pushFrame(t, frame)).
+   * Compressions are found with a hysteresis peak/trough detector on the smoothed wrist height.
+   */
+  function createSession(opts) {
+    opts = Object.assign({ armCm: ARM_CM }, opts);
+    const samples = [];            // {t, y, armPx, elbow}
+    const comps = [];              // {t (bottom), top, bottom, rest, depthCm, travelCm, recoil, elbow, period}
+    const A = 0.7;                 // smoothing weight for the newest frame
+    let ema = null, dir = 0, lastTop = null, candTop = null, candBottom = null;
+    let started = null, lastT = null, armRef = null, rest = null, still = [], dts = [];
+    let hipS = null, pending = null, hyst = 4;                  // px, adapts to compression size
+
+    // the smoothing filter shrinks fast motions slightly; undo that for a compression of a given period
+    const gain = (period) => {
+      const dt = dts.length ? median(dts) : 1 / 30, w = (2 * Math.PI * dt) / Math.max(0.2, period || 0.55);
+      return A / Math.hypot(1 - (1 - A) * Math.cos(w), (1 - A) * Math.sin(w));
+    };
+
+    function pushFrame(t, f) {
+      if (lastT != null) { dts.push(t - lastT); if (dts.length > 60) dts.shift(); }
+      lastT = t;
+      if (!f) { samples.push({ t, y: null }); return; }
+      if (f.hipY != null) hipS = hipS == null ? f.hipY : hipS * 0.9 + f.hipY * 0.1;   // hips barely move while kneeling: smooth them hard
+      const yRaw = hipS != null ? f.wristY - hipS : f.wristY;
+      armRef = armRef == null ? f.armPx : armRef * 0.97 + f.armPx * 0.03;
+      ema = ema == null ? yRaw : ema * (1 - A) + yRaw * A;
+      const y = ema;
+      samples.push({ t, y, armPx: f.armPx, elbow: f.elbow });
+      // resting position of the hands on the chest: learned whenever there are no compressions
+      const quiet = !comps.length ? started == null : t - comps[comps.length - 1].t > 1.2;
+      if (quiet) { still.push({ t, y }); while (still.length && t - still[0].t > 1.0) still.shift(); if (still.length > 5) { const ys = still.map((q) => q.y); if (Math.max(...ys) - Math.min(...ys) < 0.02 * armRef) rest = median(ys); } }
+      else still = [];
+      hyst = Math.max(0.03 * armRef, comps.length ? 0.3 * median(comps.slice(-6).map((c) => c.bottom - c.top)) : 0.02 * armRef);
+      // y grows downward: a compression is a top (smallest y) then a bottom (largest y) and back up
+      if (candTop == null || y < candTop.y) { if (dir <= 0) candTop = { t, y }; }
+      if (candBottom == null || y > candBottom.y) { if (dir >= 0) candBottom = { t, y, elbow: f.elbow }; }
+      if (dir <= 0 && candTop && y > candTop.y + hyst) { lastTop = candTop; dir = 1; candBottom = { t, y, elbow: f.elbow }; }
+      else if (dir >= 0 && candBottom && y < candBottom.y - hyst) {
+        const prev = comps[comps.length - 1];
+        // camera jitter makes tiny up-down blips: ignore any 'compression' faster than 200/min or much smaller than the last few
+        const blip = prev && (candBottom.t - prev.t < 0.3 || (comps.length >= 3 && candBottom.y - lastTop.y < 0.45 * median(comps.slice(-6).map((c) => c.bottom - c.top))));
+        // too small to be a compression at all (a still body jitters by a centimetre or so between frames)
+        const tiny = armRef && lastTop && ((candBottom.y - lastTop.y) / armRef) * opts.armCm < 1.6;
+        if (blip || tiny) { if (tiny) { dir = -1; candTop = { t, y }; } return; }
+        if (lastTop) {
+          const period = prev ? candBottom.t - prev.t : null;
+          const g = gain(period && period < 2 ? period : null);
+          const travelPx = (candBottom.y - lastTop.y) / g;
+          // depth is measured from where the hands rest on the chest when it is fully up
+          const fromRest = rest != null ? Math.max(travelPx, (candBottom.y - rest) - (1 / g - 1) * (candBottom.y - lastTop.y) * 0.5) : travelPx;
+          const c = {
+            t: candBottom.t, top: lastTop.y, bottom: candBottom.y, rest, startT: lastTop.t,
+            depthCm: (fromRest / armRef) * opts.armCm, travelCm: (travelPx / armRef) * opts.armCm,
+            recoil: fromRest > 0 ? clamp(travelPx / fromRest, 0, 1) : 1,
+            elbow: candBottom.elbow, period,
+          };
+          // a lone up-down movement isn't CPR: a push only counts once another follows within 1.5 s
+          if (!prev || period > 1.5) {
+            if (pending && c.t - pending.t <= 1.5) {
+              comps.push(pending); if (started == null) started = pending.startT;
+              c.period = c.t - pending.t; comps.push(c); pending = null;
+            } else pending = c;
+          } else { comps.push(c); pending = null; }
+        }
+        dir = -1; candTop = { t, y };
+      }
+    }
+    const push = (t, lm, w, h) => pushFrame(t, poseFrame(lm, w, h));
+
+    const rateOf = (list) => {
+      const ok = []; for (let i = 1; i < list.length; i++) if (list[i].period && list[i].period < 2) ok.push(list[i]);
+      if (ok.length < 2) return null;
+      // average over consecutive compressions (finer than single frame-quantised periods)
+      let n = 0, span = 0;
+      for (let i = 1; i < list.length; i++) { const p = list[i].t - list[i - 1].t; if (p < 2) { n++; span += p; } }
+      return n ? (60 * n) / span : null;
+    };
+
+    /** Live state over the last few seconds, plus the coaching message to show or say. */
+    function state(now) {
+      now = now == null ? lastT : now;
+      const recent = comps.filter((c) => now - c.t <= 4.5).slice(-8);   // the last few seconds: quick to react, steady enough to trust
+      const rate = recent.length >= 3 ? rateOf(recent) : null;
+      const depth = recent.length >= 2 ? median(recent.map((c) => c.depthCm)) : null;
+      const elbow = recent.length >= 2 ? median(recent.map((c) => c.elbow).filter(isFinite)) : null;
+      const recoil = recent.length >= 3 ? median(recent.map((c) => c.recoil)) : null;
+      const sinceLast = comps.length ? now - comps[comps.length - 1].t : null;
+      const paused = comps.length > 0 && sinceLast > 2;
+      const s = { count: comps.length, rate, depth, elbow, recoil, paused, sinceLast, elapsed: started == null ? 0 : now - started, restKnown: rest != null,
+        geo: { rest, arm: armRef, hip: hipS, top: comps.length ? comps[comps.length - 1].top : null } };
+      s.message = coach(s);
+      return s;
+    }
+
+    /** Whole-session summary and score. */
+    function summary(end) {
+      end = end == null ? lastT : end;
+      const n = comps.length;
+      if (!n || started == null) return { count: 0, score: 0, ok: false };
+      const total = Math.max(1, end - started);
+      let handsOff = 0, longest = 0, pauses = 0;
+      for (let i = 1; i < n; i++) { const g = comps[i].t - comps[i - 1].t; if (g > 2) { handsOff += g; pauses++; longest = Math.max(longest, g); } }
+      const tail = end - comps[n - 1].t; if (tail > 2) { handsOff += tail; pauses++; longest = Math.max(longest, tail); }
+      const fraction = clamp(1 - handsOff / total, 0, 1);
+      const rates = []; for (let i = 1; i < n; i++) if (comps[i].period && comps[i].period < 2) rates.push(60 / comps[i].period);
+      const inRate = rates.filter((r) => r >= TARGET.rateLo - 2 && r <= TARGET.rateHi + 2).length / Math.max(1, rates.length);
+      const inDepth = comps.filter((c) => c.depthCm >= TARGET.depthLo - 0.3 && c.depthCm <= TARGET.depthHi + 0.5).length / n;
+      const fullRecoil = comps.filter((c) => c.recoil >= 0.85).length / n;
+      const straight = comps.filter((c) => !isFinite(c.elbow) || c.elbow >= TARGET.elbowMin).length / n;
+      const score = Math.round(100 * (0.3 * inRate + 0.3 * inDepth + 0.15 * fullRecoil + 0.1 * straight + 0.15 * fraction));
+      return {
+        ok: true, count: n, seconds: total, rate: rateOf(comps), depth: median(comps.map((c) => c.depthCm)),
+        inRate, inDepth, fullRecoil, straight, fraction, pauses, longestPause: longest, score,
+        series: comps.map((c) => ({ t: c.t - started, rate: c.period && c.period < 2 ? 60 / c.period : null, depth: c.depthCm, recoil: c.recoil })),
+      };
+    }
+    return { push, pushFrame, state, summary, compressions: () => comps.slice(), samples: () => samples };
+  }
+
+  /** The one correction that matters most right now (or encouragement). */
+  function coach(s) {
+    if (!s.count) return { id: "start", text: "Push hard and fast in the centre of the chest", tone: "info" };
+    if (s.paused) return { id: "pause", text: "Keep pushing! Hands back on the chest", tone: "bad" };
+    if (s.rate != null && s.rate < TARGET.rateLo - 3) return { id: "faster", text: "Push faster", tone: "warn" };
+    if (s.rate != null && s.rate > TARGET.rateHi + 5) return { id: "slower", text: "Slow down a little", tone: "warn" };
+    if (s.depth != null && s.depth < TARGET.depthLo - 0.5) return { id: "harder", text: "Push harder", tone: "warn" };
+    if (s.elbow != null && s.elbow < TARGET.elbowMin) return { id: "elbows", text: "Lock your elbows. Arms straight", tone: "warn" };
+    if (s.recoil != null && s.recoil < 0.8) return { id: "recoil", text: "Let the chest come all the way up", tone: "warn" };
+    if (s.depth != null && s.depth > TARGET.depthHi + 1) return { id: "softer", text: "A little less deep", tone: "warn" };
+    if (s.rate == null || s.depth == null) return { id: "keep", text: "Keep going", tone: "info" };
+    return { id: "good", text: "Good compressions. Keep going", tone: "good" };
+  }
+
+  // ---------------------------------------------------------------- heart attack check
+  // Warning signs as listed by the American Heart Association (Mission: Lifeline).
+  const SYMPTOMS = [
+    { id: "chest", q: "Chest pain, pressure, squeezing or fullness", main: true },
+    { id: "arm", q: "Pain or discomfort in one or both arms or shoulders" },
+    { id: "jaw", q: "Pain in the jaw, neck or back" },
+    { id: "breath", q: "Shortness of breath" },
+    { id: "nausea", q: "Nausea or vomiting" },
+    { id: "sweat", q: "Breaking out in a cold sweat" },
+    { id: "light", q: "Lightheadedness or feeling faint" },
+    { id: "tired", q: "Unusual, sudden tiredness" },
+  ];
+  const RISKS = [
+    { id: "known", q: "Known heart disease or a previous heart attack" },
+    { id: "diabetes", q: "Diabetes" },
+    { id: "bp", q: "High blood pressure" },
+    { id: "chol", q: "High cholesterol" },
+    { id: "smoke", q: "Smokes" },
+    { id: "family", q: "Close family member with early heart disease" },
+  ];
+
+  /**
+   * input: { collapsed: bool (unresponsive, not breathing normally), symptoms: {id: true},
+   *          minutes: how long symptoms have lasted (null if unknown), comesAndGoes, risks: {id: true}, age }
+   */
+  function heartCheck(input) {
+    const sym = SYMPTOMS.filter((s) => input.symptoms && input.symptoms[s.id]);
+    const risks = RISKS.filter((r) => input.risks && input.risks[r.id]);
+    const chest = sym.some((s) => s.main);
+    const others = sym.filter((s) => !s.main);
+    const lasting = input.minutes == null || input.minutes >= 5 || input.comesAndGoes;
+    const out = { level: "", title: "", body: "", symptoms: sym, risks, actions: [] };
+    if (input.collapsed) {
+      out.level = "cpr";
+      out.title = "Cardiac arrest. Call now and start CPR.";
+      out.body = "Someone who is unresponsive and not breathing normally needs chest compressions straight away. Every minute without CPR lowers their chance of survival.";
+      out.actions = ["Call emergency services on speaker.", "Start chest compressions now. Restart will coach you.", "Send someone to bring an AED and use it as soon as it arrives."];
+      return out;
+    }
+    if (chest || others.length >= 2 || (others.length >= 1 && (risks.length || (input.age || 0) >= 50))) {
+      out.level = "call";
+      out.title = "Possible heart attack. Call emergency services now.";
+      out.body = chest
+        ? `Chest discomfort${others.length ? ` with ${others.length} other warning sign${others.length > 1 ? "s" : ""}` : ""}${lasting ? "" : " that started just now"} can be a heart attack. Treatment works best in the first hours.`
+        : "Heart attacks don't always cause chest pain, especially in women, older people and people with diabetes. These signs together need checking now.";
+      out.actions = [
+        "Call emergency services. Don't drive yourself, and don't have someone drive you.",
+        "Sit down, rest, and loosen tight clothing. Unlock the door.",
+        "If the dispatcher tells you to chew aspirin, and you're not allergic, do what they say.",
+        "If they collapse and stop breathing normally, start CPR with Restart.",
+      ];
+      return out;
+    }
+    if (sym.length) {
+      out.level = "unclear";
+      out.title = "Can't rule out a heart attack. If this is new, call.";
+      out.body = "One warning sign on its own may be something else, but heart attacks can start mildly. If it's sudden, unusual for them, or getting worse, call emergency services now. Calling early is never wrong.";
+      out.actions = ["Stay with them and recheck in a few minutes.", "Call at once if chest discomfort, sweating, breathlessness or fainting starts.", "Don't drive to hospital: call emergency services instead."];
+      return out;
+    }
+    out.level = "none";
+    out.title = "No warning signs selected.";
+    out.body = "If someone feels unwell and you're worried, call emergency services anyway. Restart can't rule out a heart attack.";
+    out.actions = ["Watch for chest discomfort, breathlessness, sweating, nausea or faintness."];
+    return out;
+  }
+
+  // ---------------------------------------------------------------- synthetic rescuer (demo + tests)
+  function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+  /**
+   * Side view of a kneeling rescuer doing compressions. Segments let a demo change technique over time.
+   * segments: [{ seconds, rate, depthCm, elbow (degrees), recoil (0..1 of depth released), pause: true }]
+   */
+  function synthRescuer(segments, opts) {
+    opts = Object.assign({ fps: 30, w: 640, h: 480, seed: 4, armCm: ARM_CM, noise: 0.0025 }, opts);
+    const r = rng(opts.seed), frames = [];
+    const armPx = 0.42 * opts.h;                                   // straight arm, shoulder to wrist
+    const cmToPx = armPx / opts.armCm;
+    let t = 0, phase = 0;
+    const truth = [];
+    for (const seg of segments) {
+      const n = Math.round(seg.seconds * opts.fps);
+      for (let k = 0; k < n; k++) {
+        const dt = 1 / opts.fps;
+        let press = 0;
+        if (!seg.pause) {
+          const prev = phase; phase += (seg.rate / 60) * dt;
+          if (Math.floor(phase) > Math.floor(prev)) truth.push({ t, depthCm: seg.depthCm });
+          const ph = phase % 1;
+          const shape = 0.5 - 0.5 * Math.cos(2 * Math.PI * ph);      // 0 at top, 1 at bottom
+          const keep = 1 - (seg.recoil == null ? 1 : seg.recoil);     // fraction of depth not released
+          press = (keep + (1 - keep) * shape) * seg.depthCm * cmToPx;
+        }
+        const elbowDeg = seg.elbow || 175;
+        // geometry: chest point under the hands; shoulders straight above; elbow bent outward by elbow angle
+        const chestY = 0.78 * opts.h + press, handX = 0.52 * opts.w;
+        const half = armPx / 2, bend = ((180 - elbowDeg) * Math.PI) / 180;
+        const reach = 2 * half * Math.cos(bend / 2);                  // shoulder–wrist straight-line distance
+        const shoulder = { x: handX - 0.02 * opts.w, y: chestY - reach };
+        const elbow = { x: (shoulder.x + handX) / 2 + half * Math.sin(bend / 2), y: (shoulder.y + chestY) / 2 };
+        const J = () => (r() - 0.5) * 2 * opts.noise;
+        const lm = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.2 }));
+        const set = (i, p, v) => (lm[i] = { x: p.x / opts.w + J(), y: p.y / opts.h + J(), z: 0, visibility: v });
+        set(P.shL, shoulder, 0.98); set(P.elL, elbow, 0.97); set(P.wrL, { x: handX, y: chestY }, 0.97);
+        set(P.shR, { x: shoulder.x + 4, y: shoulder.y + 2 }, 0.5); set(P.elR, { x: elbow.x + 4, y: elbow.y + 2 }, 0.45); set(P.wrR, { x: handX + 3, y: chestY + 1 }, 0.45);
+        set(P.hipL, { x: shoulder.x - 0.2 * opts.w, y: 0.72 * opts.h }, 0.9); set(P.hipR, { x: shoulder.x - 0.2 * opts.w + 4, y: 0.72 * opts.h }, 0.5);
+        set(0, { x: shoulder.x + 0.04 * opts.w, y: shoulder.y - 0.09 * opts.h + press * 0.3 }, 0.95);
+        frames.push({ t, lm, w: opts.w, h: opts.h });
+        t += dt;
+      }
+    }
+    return { frames, truth };
+  }
+
+  const api = { ARM_CM, TARGET, P, poseFrame, createSession, coach, SYMPTOMS, RISKS, heartCheck, synthRescuer, median, mean };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  root.Restart = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+</script>
+<script>/* Restart hero: a wireframe heart in three.js that beats in time with a live ECG trace, with the two main
+ * coronary arteries drawn on its surface and a blockage marked on one of them (ischaemic heart disease:
+ * a narrowed coronary artery starving the muscle downstream).
+ * The shape is the classic heart curve, swept through depth with a rounded cross-section and tilted the way
+ * the heart sits in the chest. Modes: "beat" (sinus rhythm), "arrest" (ventricular fibrillation: the trace
+ * goes chaotic and the heart only quivers), "cpr" (each compression squeezes it).
+ * window.RestartHeart.create(canvas, { ecg: canvas, bpm }) -> { ok, setMode(m), squeeze(f), setBpm(b) }
+ */
+(function (root) {
+  "use strict";
+  const TAU = Math.PI * 2;
+  function heart2d(t) {   // classic heart curve, roughly unit size, apex down
+    const x = 16 * Math.pow(Math.sin(t), 3);
+    const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    return [x / 17, (y + 2) / 17];
+  }
+  // sinus-rhythm ECG for one beat, phase 0..1 (P, QRS, T)
+  function ecgSinus(p) {
+    const g = (c, w, a) => a * Math.exp(-((p - c) * (p - c)) / (2 * w * w));
+    return g(0.12, 0.025, 0.12) + g(0.235, 0.008, -0.12) + g(0.25, 0.01, 1) + g(0.268, 0.01, -0.28) + g(0.48, 0.05, 0.26);
+  }
+  // ventricular contraction follows the R wave: "lub" then a smaller "dub"
+  function squeezeAt(p) {
+    const g = (c, w, a) => a * Math.exp(-((p - c) * (p - c)) / (2 * w * w));
+    return g(0.3, 0.05, 1) + g(0.5, 0.04, 0.35);
+  }
+
+  function create(canvas, opts) {
+    opts = opts || {};
+    const THREE = root.THREE;
+    const reduce = root.matchMedia && root.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let renderer;
+    try { if (!THREE) throw 0; renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true }); }
+    catch (e) { return { ok: false, setMode() {}, squeeze() {}, setBpm() {} }; }
+    renderer.setPixelRatio(Math.min(2, root.devicePixelRatio || 1));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
+    camera.position.set(0, 0.05, 4.4);
+    const group = new THREE.Group(); scene.add(group);
+    const tilt = new THREE.Group(); group.add(tilt);
+    tilt.rotation.z = -0.38; tilt.rotation.x = 0.12;
+
+    // surface point at curve parameter t and depth z (-1..1)
+    const DEPTH = 0.62;
+    const surf = (t, z) => { const [x, y] = heart2d(t), s = Math.pow(Math.max(0, 1 - z * z), 0.62); return new THREE.Vector3(x * s, y * s + (1 - s) * 0.16, z * DEPTH); };
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xdfe5e8, transparent: true, opacity: 0.2 });
+    const lineHi = new THREE.LineBasicMaterial({ color: 0xdfe5e8, transparent: true, opacity: 0.42 });
+    const RINGS = 15, SEG = 120, MER = 30;
+    for (let i = 0; i < RINGS; i++) {
+      const z = -0.96 + (1.92 * i) / (RINGS - 1), pts = [];
+      for (let k = 0; k <= SEG; k++) pts.push(surf((k / SEG) * TAU, z));
+      tilt.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), i === (RINGS >> 1) ? lineHi : lineMat));
+    }
+    for (let m = 0; m < MER; m++) {
+      const t = (m / MER) * TAU, pts = [];
+      for (let k = 0; k <= 40; k++) pts.push(surf(t, -0.99 + (1.98 * k) / 40));
+      tilt.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat));
+    }
+    // surface dust
+    const dust = [];
+    for (let i = 0; i < 900; i++) { const p = surf(Math.random() * TAU, (Math.random() * 2 - 1) * 0.98); dust.push(p.x, p.y, p.z); }
+    const dg = new THREE.BufferGeometry(); dg.setAttribute("position", new THREE.Float32BufferAttribute(dust, 3));
+    tilt.add(new THREE.Points(dg, new THREE.PointsMaterial({ color: 0x2ee88a, size: 0.012, transparent: true, opacity: 0.55 })));
+
+    // coronary arteries on the front surface: (t, z) paths, lifted slightly off the surface
+    const lift = (v) => v.multiplyScalar(1.012);
+    const pathPts = (fn, n) => { const out = []; for (let k = 0; k <= n; k++) out.push(lift(fn(k / n))); return out; };
+    const lad = pathPts((u) => surf(0.08 + u * 2.9, 0.86 - u * 0.12), 70);              // left anterior descending
+    const rca = pathPts((u) => surf(TAU - 0.35 - u * 2.2, 0.8 - u * 0.25), 60);          // right coronary
+    const artMat = new THREE.LineBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: 0.9 });
+    [lad, rca].forEach((pts) => tilt.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), artMat)));
+    // blood flow pulse travelling down the LAD and stopping at the blockage
+    const BLOCK = 0.46;
+    const flow = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffd0d0 }));
+    tilt.add(flow);
+    const bi = Math.round(BLOCK * (lad.length - 1));
+    const block = new THREE.Mesh(new THREE.SphereGeometry(0.04, 14, 14), new THREE.MeshBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: 0.95 }));
+    block.position.copy(lad[bi]); tilt.add(block);
+    const halo = new THREE.Mesh(new THREE.RingGeometry(0.06, 0.075, 40), new THREE.MeshBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
+    halo.position.copy(lad[bi]); tilt.add(halo);
+    // downstream muscle starved of blood: dimmer dashed segment after the blockage
+    const after = lad.slice(bi);
+    const deadMat = new THREE.LineDashedMaterial({ color: 0x5a6066, dashSize: 0.03, gapSize: 0.025, transparent: true, opacity: 0.9 });
+    const dl = new THREE.Line(new THREE.BufferGeometry().setFromPoints(after), deadMat); dl.computeLineDistances(); tilt.add(dl);
+
+    // orbit ring
+    const orbit = new THREE.Mesh(new THREE.RingGeometry(1.34, 1.345, 128), new THREE.MeshBasicMaterial({ color: 0x2ee88a, transparent: true, opacity: 0.18, side: THREE.DoubleSide }));
+    orbit.rotation.x = Math.PI / 2.3; group.add(orbit);
+
+    // ECG trace (2D canvas)
+    const ecgC = opts.ecg || null, ctx = ecgC ? ecgC.getContext("2d") : null;
+    const hist = new Float32Array(600); let head = 0;
+    let mode = "beat", bpm = opts.bpm || 72, phase = 0, ext = 0, vf = 0, last = 0, raf = 0, visible = true;
+
+    function resize() {
+      const w = canvas.clientWidth || 300, h = canvas.clientHeight || 300;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+      if (ecgC) { const d = Math.min(2, root.devicePixelRatio || 1); ecgC.width = Math.round((ecgC.clientWidth || 300) * d); ecgC.height = Math.round((ecgC.clientHeight || 60) * d); }
+    }
+    resize();
+    if (root.ResizeObserver) new ResizeObserver(resize).observe(canvas);
+    if (root.IntersectionObserver) new IntersectionObserver((es) => { visible = es[0].isIntersecting; if (visible && !raf) loop(performance.now()); }).observe(canvas);
+
+    function drawEcg() {
+      if (!ctx) return;
+      const W = ecgC.width, H = ecgC.height, n = hist.length;
+      ctx.clearRect(0, 0, W, H);
+      ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += H / 4) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      const col = mode === "arrest" ? "#FF3B3B" : "#2EE88A";
+      ctx.lineWidth = Math.max(1.5, H / 40); ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = H / 8;
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const v = hist[(head + i) % n], x = (i / (n - 1)) * W, y = H * 0.62 - v * H * 0.5;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.stroke(); ctx.shadowBlur = 0;
+      const v = hist[(head + n - 1) % n]; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(W - 3, H * 0.62 - v * H * 0.5, Math.max(2, H / 22), 0, TAU); ctx.fill();
+    }
+
+    function loop(now) {
+      raf = 0;
+      if (!visible && !reduce) return;
+      const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016); last = now;
+      phase = (phase + (dt * bpm) / 60) % 1;
+      let sq = 0, e = 0;
+      if (mode === "beat") { sq = squeezeAt(phase); e = ecgSinus(phase); }
+      else if (mode === "arrest") { vf += dt; e = 0.28 * Math.sin(vf * 31) * Math.sin(vf * 5.3) + 0.12 * Math.sin(vf * 47 + 1); sq = 0.08 * Math.abs(Math.sin(vf * 40)); }
+      else { ext *= Math.pow(0.02, dt); sq = ext; e = ext * 0.7; }
+      const steps = Math.max(1, Math.round(dt * 220));
+      for (let k = 0; k < steps; k++) { hist[head] = e; head = (head + 1) % hist.length; }
+      const s = 1 - 0.07 * sq;
+      tilt.scale.set(s, 1 - 0.05 * sq, s);
+      group.rotation.y += reduce ? 0 : dt * 0.32;
+      const fu = (now / 1000 * 0.45) % 1, fi = Math.min(bi, Math.round(fu * bi * 1.25));
+      flow.position.copy(lad[Math.min(fi, bi)]); flow.visible = fi < bi;
+      const hp = 1 + 0.35 * (0.5 + 0.5 * Math.sin(now / 260));
+      halo.scale.set(hp, hp, hp); halo.lookAt(camera.position);
+      halo.material.opacity = 0.65 - 0.4 * (hp - 1) / 0.35;
+      renderer.render(scene, camera);
+      drawEcg();
+      if (!reduce) raf = requestAnimationFrame(loop);
+    }
+    loop(performance.now());
+    if (reduce) { for (let i = 0; i < hist.length; i++) hist[i] = ecgSinus((i / 150) % 1); drawEcg(); }
+    return {
+      ok: true,
+      setMode(m) { mode = m; },
+      setBpm(b) { bpm = b; },
+      squeeze(f) { ext = Math.max(ext, Math.min(1, f)); },
+    };
+  }
+  root.RestartHeart = { create };
+})(typeof window !== "undefined" ? window : this);
+</script>
+<script>(function () {
+  "use strict";
+  const R = window.Restart, H3 = window.RestartHeart;
+  const $ = (id) => document.getElementById(id);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+  };
+  function toast(t) { const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (el.hidden = true), 2800); }
+  const buzz = (p) => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* no haptics */ } };
+  const fmtClock = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const fmtDur = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return h ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`; };
+  const pct = (v) => Math.round(v * 100) + "%";
+
+  // ============================================================ installable offline app (on https hosts)
+  if ("serviceWorker" in navigator && location.protocol === "https:" && !/claude\.ai|claudeusercontent/.test(location.hostname)) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => { /* offline mode unavailable */ }));
+  }
+
+  // ============================================================ emergency number
+  function defaultNumber() {
+    const lang = (navigator.languages && navigator.languages[0]) || navigator.language || "en-US";
+    const region = (lang.split("-")[1] || "").toUpperCase();
+    const map = { US: "911", CA: "911", MX: "911", GB: "999", IE: "112", AU: "000", NZ: "111", JP: "119", KR: "119", CN: "120", IN: "112", PH: "911" };
+    return map[region] || (region ? "112" : "911");
+  }
+  function setNumber(n) {
+    store.set("restart.number", n);
+    document.querySelectorAll(".num-txt, .num-top").forEach((el) => (el.textContent = n));
+    document.querySelectorAll("#call-top, .call-link").forEach((a) => (a.href = "tel:" + n));
+    $("num-select").value = n;
+  }
+  $("num-select").addEventListener("change", (e) => setNumber(e.target.value));
+  const NUM = () => $("num-select").value;
+
+  // ============================================================ status-bar clock
+  let clockTimer = 0;
+  function setClock(label, startMs, red) {
+    clearInterval(clockTimer); clockTimer = 0;
+    const c = $("clock");
+    if (!label) { c.hidden = true; return; }
+    $("clock-l").textContent = label; c.classList.toggle("red", !!red); c.hidden = false;
+    const tick = () => { const t = startMs ? fmtDur(Date.now() - startMs) : "--:--"; $("clock-v").textContent = t; if (HC.step === "result" && curView === "heart") $("r-time").textContent = startMs ? t : "Unknown"; };
+    tick(); clockTimer = setInterval(tick, 1000);
+  }
+
+  // ============================================================ routing
+  const VIEWS = ["home", "heart", "cpr", "science", "pitch"];
+  const TITLES = { home: "Restart", heart: "Heart check", cpr: "CPR coach", science: "Science", pitch: "Pitch" };
+  let curView = null;
+  function route() {
+    let v = location.hash.slice(1);
+    if (!VIEWS.includes(v)) v = "home";
+    const changed = v !== curView, from = curView; curView = v;
+    VIEWS.forEach((n) => ($("view-" + n).hidden = n !== v));
+    document.querySelectorAll(".navbtn[data-view]").forEach((a) => a.setAttribute("aria-current", a.dataset.view === v ? "page" : "false"));
+    $("where").textContent = TITLES[v];
+    if (from === "cpr" && v !== "cpr") endCpr("leave");
+    if (v === "cpr" && changed && !C.running && !C.fresh) cstep("choose");
+    C.fresh = false;
+    if (v === "heart" && !HC.started) startHeart();
+    if (v !== "heart" && !C.running) setClock(null);
+    if (v === "heart" && HC.onset) setClock("Since symptoms began", HC.onset);
+    if (v === "science") setTimeout(renderValidation, 60);
+    if (v === "pitch") { deckGo(deckIdx, true); setTimeout(() => $("deck").focus({ preventScroll: true }), 50); if (!pitchHeart) pitchHeart = H3.create($("pitch-heart"), { ecg: $("pitch-ecg") }); }
+    if (changed) { window.scrollTo(0, 0); flowIn($("view-" + v)); }
+  }
+  function flowIn(el) {
+    if (reduce || !el.animate) return;
+    const kids = Array.from(el.querySelectorAll(":scope > :not([hidden]), :scope > .cstep:not([hidden]) > *, :scope > .hstep:not([hidden]) > *")).slice(0, 8);
+    kids.forEach((c, i) => c.animate([{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "none" }], { duration: 420, delay: i * 55, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }));
+  }
+  window.addEventListener("hashchange", route);
+  document.addEventListener("click", (e) => {
+    const c = e.target.closest("[data-cpr]"); if (c) { e.preventDefault(); startCpr(c.dataset.cpr); return; }
+    const go = e.target.closest("[data-go]"); if (go) { if (go.dataset.go === "heart") HC.started = false; location.hash = go.dataset.go; }
+  });
+
+  // ============================================================ hero heart
+  const hero = H3.create($("hero-heart"), { ecg: $("hero-ecg") });
+  if (!hero.ok) $("hero-heart").parentElement.hidden = true;
+  let pitchHeart = null;
+  if (!reduce) setInterval(() => { const b = 70 + Math.round(Math.random() * 5); $("hero-bpm").textContent = b; hero.setBpm(b); }, 2600);
+  const best = store.get("restart.best", null); if (best != null) $("best-score").textContent = best;
+
+  // ============================================================ HEART ATTACK CHECK
+  const HC = { started: false, step: "awake", symptoms: {}, risks: {}, minutes: null, comesAndGoes: false, onset: null, age: null, who: "self", result: null };
+  $("sym-chips").innerHTML = R.SYMPTOMS.map((s) => `<label class="chip${s.main ? " main" : ""}"><input type="checkbox" data-sym="${s.id}"><span>${s.q}</span></label>`).join("");
+  $("risk-chips").innerHTML = R.RISKS.map((s) => `<label class="chip"><input type="checkbox" data-risk="${s.id}"><span>${s.q}</span></label>`).join("");
+  $("sym-chips").addEventListener("change", (e) => { const i = e.target.closest("[data-sym]"); if (i) HC.symptoms[i.dataset.sym] = i.checked; if (i && i.dataset.sym === "chest" && i.checked) buzz(60); });
+  $("risk-chips").addEventListener("change", (e) => { const i = e.target.closest("[data-risk]"); if (i) HC.risks[i.dataset.risk] = i.checked; });
+  function segPick(id, attr, fn) {
+    $(id).addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $(id).querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); fn(b.dataset[attr]); });
+  }
+  segPick("onset", "min", (m) => {
+    m = +m; HC.comesAndGoes = m < 0; HC.minutes = m < 0 ? null : m;
+    HC.onset = m < 0 ? null : Date.now() - m * 60000;
+    if (HC.onset) setClock("Since symptoms began", HC.onset); else setClock(null);
+  });
+  segPick("whofor", "v", (v) => (HC.who = v));
+  function startHeart() {
+    Object.assign(HC, { started: true, symptoms: {}, risks: {}, minutes: null, comesAndGoes: false, onset: null, age: null, result: null });
+    document.querySelectorAll("#view-heart input[type=checkbox]").forEach((i) => (i.checked = false));
+    document.querySelectorAll("#onset button").forEach((b) => b.setAttribute("aria-pressed", "false"));
+    $("age").value = "";
+    hstep("awake");
+  }
+  function hstep(s) {
+    HC.step = s;
+    const order = ["awake", "signs", "details", "result"];
+    document.querySelectorAll("#view-heart .hstep").forEach((el) => (el.hidden = el.dataset.step !== s));
+    document.querySelectorAll("#hstepper > div").forEach((d) => {
+      const i = order.indexOf(d.dataset.s), k = order.indexOf(s);
+      d.className = i === k ? "now" : i < k ? "ok" : "";
+      if (s === "result" && d.dataset.s === "result" && HC.result && (HC.result.level === "call" || HC.result.level === "cpr")) d.className = "bad";
+    });
+    if (s === "result") renderHeart();
+    const el = document.querySelector(`#view-heart .hstep[data-step="${s}"]`);
+    if (!reduce && el.animate) el.animate([{ opacity: 0, transform: "translateX(24px)" }, { opacity: 1, transform: "none" }], { duration: 380, easing: "cubic-bezier(.2,.8,.2,1)" });
+    window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+  }
+  document.querySelectorAll("[data-hgo]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.hgo === "result") { HC.result = R.heartCheck(heartInput()); }
+    hstep(b.dataset.hgo);
+  }));
+  $("awake-yes").addEventListener("click", () => hstep("signs"));
+  $("awake-no").addEventListener("click", () => { buzz([200, 100, 200]); startCpr("emergency"); });
+  $("h-again").addEventListener("click", () => { startHeart(); setClock(null); });
+  function heartInput() {
+    const a = parseInt($("age").value, 10);
+    HC.age = isFinite(a) ? a : null;
+    return { collapsed: false, symptoms: HC.symptoms, minutes: HC.minutes, comesAndGoes: HC.comesAndGoes, risks: HC.risks, age: HC.age };
+  }
+  function renderHeart() {
+    const r = HC.result || R.heartCheck(heartInput());
+    const v = $("verdict"); v.className = "verdict " + r.level;
+    $("v-title").textContent = r.title; $("v-body").textContent = r.body;
+    $("v-call").hidden = r.level === "none";
+    $("v-call").innerHTML = (r.level === "call" ? "Call " : "Call ") + `<span class="num-txt">${NUM()}</span>` + (r.level === "call" ? " now" : "");
+    $("v-actions").innerHTML = r.actions.map((a) => `<li><span>${a}</span></li>`).join("");
+    $("v-actions").classList.toggle("red", r.level === "call");
+    $("r-time").textContent = HC.onset ? fmtDur(Date.now() - HC.onset) : HC.comesAndGoes ? "On and off" : "Unknown";
+    $("report").textContent = reportText(r);
+    if (r.level === "call") { buzz([180, 90, 180]); }
+  }
+  function reportText(r) {
+    const L = [], now = Date.now();
+    L.push("RESTART HEART ATTACK CHECK");
+    L.push(`Time of check:     ${new Date(now).toLocaleString()}`);
+    L.push(`Symptoms began:    ${HC.onset ? `about ${fmtClock(HC.onset)} (${Math.round((now - HC.onset) / 60000)} min ago)` : HC.comesAndGoes ? "coming and going" : "unknown"}`);
+    L.push(`Patient:           ${HC.who === "self" ? "the person using the phone" : "checked by a bystander"}${HC.age ? `, age ${HC.age}` : ""}`);
+    L.push(`Awake, breathing:  yes`);
+    L.push("");
+    L.push(`Warning signs (${r.symptoms.length}):`);
+    (r.symptoms.length ? r.symptoms : [{ q: "none reported" }]).forEach((s) => L.push("  - " + s.q));
+    L.push(`Risk factors (${r.risks.length}):`);
+    (r.risks.length ? r.risks : [{ q: "none reported" }]).forEach((s) => L.push("  - " + s.q));
+    L.push("");
+    L.push(`Advice given:      ${r.title}`);
+    L.push("Symptom checklist, not a diagnosis.");
+    return L.join("\n");
+  }
+  async function copyReport(text) {
+    try { await navigator.clipboard.writeText(text); toast("Copied"); }
+    catch (e) { const rg = document.createRange(); rg.selectNodeContents($("report")); const s = getSelection(); s.removeAllRanges(); s.addRange(rg); toast("Selected. Copy it from the menu."); }
+  }
+  $("copy-report").addEventListener("click", () => copyReport($("report").textContent));
+  $("share-report").addEventListener("click", async () => {
+    const t = $("report").textContent;
+    if (navigator.share) { try { await navigator.share({ title: "Restart heart attack check", text: t }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+    copyReport(t);
+  });
+
+  // ============================================================ AI model (pose only)
+  const MP = { vision: null, pose: null, promise: null };
+  const CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+  const POSE_URLS = ["vendor/models/pose_landmarker_lite.task", "vendor/models/pose_landmarker_lite.b64.txt", "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"];
+  const abs = (p) => new URL(p, location.href).href;
+  const fromB64 = (bytes) => { const bin = atob(new TextDecoder().decode(bytes).trim()), out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; };
+  async function fetchBytes(urls, onP) {
+    let lastErr;
+    for (const u of urls) {
+      try {
+        const res = await fetch(u);
+        if (!res.ok) throw new Error(res.status);
+        const total = +res.headers.get("content-length") || 0;
+        let out;
+        if (!res.body || !total) { out = new Uint8Array(await res.arrayBuffer()); onP(1); }
+        else {
+          const reader = res.body.getReader(), parts = []; let got = 0;
+          for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; onP(got / total); }
+          out = new Uint8Array(got); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+        }
+        return /\.b64\.txt$/.test(u) ? fromB64(out) : out;
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error("download failed");
+  }
+  function sys(id, cls, text) { const el = $(id); el.className = cls; el.textContent = text; }
+  function loadModel() {
+    if (MP.promise) return MP.promise;
+    const bar = (p) => ($("model-bar").style.width = Math.round(p * 100) + "%");
+    sys("sys-pose", "wait", "loading");
+    MP.promise = (async () => {
+      try {
+        try { MP.vision = await import(abs("vendor/mediapipe/vision_bundle.mjs")); }
+        catch (e) { MP.vision = await import(CDN + "/vision_bundle.mjs"); }
+        bar(0.15);
+        const buf = await fetchBytes(POSE_URLS, (p) => bar(0.15 + p * 0.75));
+        const filesets = [{ wasmLoaderPath: abs("vendor/mediapipe/vision_wasm_internal.js"), wasmBinaryPath: abs("vendor/mediapipe/vision_wasm_internal.wasm") }, { wasmLoaderPath: CDN + "/wasm/vision_wasm_internal.js", wasmBinaryPath: CDN + "/wasm/vision_wasm_internal.wasm" }];
+        let err;
+        for (const fs of filesets) for (const delegate of ["GPU", "CPU"]) {
+          if (MP.pose) break;
+          try { MP.pose = await MP.vision.PoseLandmarker.createFromOptions(fs, { baseOptions: { modelAssetBuffer: buf, delegate }, runningMode: "VIDEO", numPoses: 1 }); }
+          catch (e) { err = e; }
+        }
+        if (!MP.pose) throw err;
+        bar(1); sys("sys-pose", "ok", "ready · 33 pts");
+        return true;
+      } catch (e) { sys("sys-pose", "no", "unavailable"); MP.promise = null; return false; }
+    })();
+    return MP.promise;
+  }
+
+  // ============================================================ audio: metronome + voice
+  let actx = null;
+  const audio = () => { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); } catch (e) { actx = null; } return actx; };
+  const metro = { on: true, bpm: 110, next: 0, timer: 0, beats: [] };
+  function metroStart() {
+    metroStop();
+    const a = audio(); if (!a) return;
+    metro.next = a.currentTime + 0.08;
+    metro.timer = setInterval(() => {
+      while (metro.next < a.currentTime + 0.12) {
+        if (metro.on) {
+          const o = a.createOscillator(), g = a.createGain();
+          o.type = "square"; o.frequency.value = 1320;
+          g.gain.setValueAtTime(0.0001, metro.next); g.gain.exponentialRampToValueAtTime(0.09, metro.next + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, metro.next + 0.05);
+          o.connect(g); g.connect(a.destination); o.start(metro.next); o.stop(metro.next + 0.06);
+        }
+        const when = (metro.next - a.currentTime) * 1000;
+        setTimeout(onBeat, Math.max(0, when));
+        metro.next += 60 / metro.bpm;
+      }
+    }, 25);
+  }
+  function metroStop() { clearInterval(metro.timer); metro.timer = 0; }
+  function onBeat() {
+    if (!$("metro").hidden) { const i = $("metro-i"); i.classList.remove("hit"); void i.offsetWidth; i.classList.add("hit"); }
+  }
+  let voiceOn = true;
+  function say(t, force) {
+    if (!voiceOn && !force) return;
+    try { if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 1.05; u.volume = 1; window.speechSynthesis.speak(u); } catch (e) { /* speech unavailable */ }
+  }
+  const quiet = () => { try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* none */ } };
+
+  // ============================================================ CPR coach
+  const C = { step: "choose", mode: null, running: false, session: null, t0: 0, useCam: true, demo: null, fi: 0, lastCount: 0, cue: null, cueSince: 0, spokenId: null, spokenAt: -99, nextSwap: 120, camOK: false, trail: [], endAt: null, raf: 0, lastTs: 0, stopArm: 0 };
+  const video = $("video");
+  let stream = null;
+  function cstep(s) {
+    C.step = s;
+    document.querySelectorAll("#view-cpr .cstep").forEach((el) => (el.hidden = el.dataset.step !== s));
+  }
+  const DEMO_SEGS = [
+    { seconds: 1.5, pause: true, cap: "Hands on the centre of the chest" },
+    { seconds: 9, rate: 110, depthCm: 5.5, cap: "Good technique" },
+    { seconds: 9, rate: 88, depthCm: 5.4, cap: "Rescuer slows to 88/min" },
+    { seconds: 9, rate: 112, depthCm: 3.4, cap: "Pushing too shallow: 3.4 cm" },
+    { seconds: 9, rate: 110, depthCm: 5.4, elbow: 132, cap: "Elbows bending" },
+    { seconds: 9, rate: 110, depthCm: 5.5, recoil: 0.55, cap: "Leaning: chest can't come back up" },
+    { seconds: 5, pause: true, cap: "Rescuer stops" },
+    { seconds: 9, rate: 112, depthCm: 5.6, cap: "Back to good CPR" },
+  ];
+
+  function startCpr(mode) {
+    if (C.running) endCpr("switch");
+    C.mode = mode; C.fresh = location.hash !== "#cpr";
+    if (location.hash !== "#cpr") { location.hash = "cpr"; }
+    if (mode === "demo") { goLive(); return; }
+    const em = mode === "emergency";
+    $("prep-k").textContent = em ? "Emergency · call first" : "Practice · 60 seconds";
+    $("prep-k").style.color = em ? "var(--red)" : "";
+    $("prep-main").innerHTML = em
+      ? `<h2>Call, then push.</h2>
+         <ol class="do red" style="margin-top:16px">
+           <li><span><b>Call <span class="num-txt">${NUM()}</span></b> and put the phone on speaker. Say "someone has collapsed and isn't breathing."</span></li>
+           <li><span><b>Shout for an AED.</b> Send anyone nearby to find one.</span></li>
+           <li><span><b>Kneel beside them.</b> Heel of one hand in the centre of the chest, other hand on top, arms straight.</span></li>
+         </ol>
+         <div class="btn-group" style="margin-top:20px"><a class="btn btn-red call-link" href="tel:${NUM()}">Call <span class="num-txt">${NUM()}</span></a><button class="btn btn-go" type="button" id="go-live" style="flex:1;font-size:1.15rem;min-height:60px">Start compressions</button></div>
+         <p class="muted" style="margin-top:12px;font-size:0.9rem">Don't wait for the camera: the beat starts straight away.</p>`
+      : `<h2>One minute on a pillow.</h2>
+         <ol class="do" style="margin-top:16px">
+           <li><span><b>Put a firm cushion on the floor</b> and kneel beside it, as if it were someone's chest.</span></li>
+           <li><span><b>Prop the phone up to your side,</b> about two metres away, so it sees your head, arms and hips.</span></li>
+           <li><span><b>Push to the beat</b> for 60 seconds. Restart scores rate, depth, recoil, straight arms and pauses.</span></li>
+         </ol>
+         <div class="btn-group" style="margin-top:20px"><button class="btn btn-go" type="button" id="go-live" style="flex:1;font-size:1.15rem;min-height:60px">Start practice</button></div>
+         <p class="muted" style="margin-top:12px;font-size:0.9rem">Never practise on a person: real compressions can hurt someone whose heart is beating.</p>`;
+    $("use-cam").checked = true;
+    document.querySelectorAll("#prep-main .call-link").forEach((a) => (a.href = "tel:" + NUM()));
+    $("go-live").addEventListener("click", goLive);
+    cstep("prep");
+    if (curView === "cpr") flowIn($("view-cpr"));
+    loadModel();
+  }
+
+  function resetLiveUI() {
+    $("banner").hidden = true; $("caption").hidden = true;
+    $("rate-v").textContent = "--"; $("depth-v").textContent = "--"; $("count-v").textContent = "0"; $("recoil-v").textContent = "--"; $("elbow-v").textContent = "--"; $("time-v").textContent = C.mode === "practice" ? "1:00" : "0:00";
+    $("time-k").textContent = C.mode === "practice" ? "Left" : "Time";
+    ["st-recoil", "st-elbow"].forEach((id) => ($(id).className = "stat"));
+    setNeedle(null); $("dfill").style.height = "0"; $("dmark").hidden = true;
+    setCue({ id: "start", text: "Push hard and fast in the centre of the chest", tone: "info" });
+    $("cue-tag").textContent = C.mode === "demo" ? "AI coach · demo" : "AI coach";
+    $("live-note").textContent = C.mode === "emergency" ? "Keep going until paramedics take over, an AED tells you to stop, or the person starts breathing normally." : C.mode === "practice" ? "Practice runs for 60 seconds, then shows your score." : "A simulated rescuer, analysed by the same code as a live session. The camera isn't used.";
+    $("t-aed").hidden = C.mode === "practice";
+    $("c-stop").textContent = C.mode === "emergency" ? "Stop CPR" : "Finish";
+    drawStrip($("strip"), [], true);
+  }
+
+  async function goLive() {
+    audio();   // unlock audio inside the tap
+    C.useCam = C.mode !== "demo" && $("use-cam").checked;
+    voiceOn = $("use-voice").checked || C.mode === "demo";
+    $("t-voice").setAttribute("aria-pressed", String(voiceOn));
+    $("t-metro").setAttribute("aria-pressed", String(metro.on));
+    Object.assign(C, { running: true, session: R.createSession(), t0: performance.now(), fi: 0, lastCount: 0, cue: null, cueSince: 0, spokenId: null, spokenAt: -99, nextSwap: 120, camOK: false, trail: [], endAt: null, stopArm: 0 });
+    C.demo = C.mode === "demo" ? R.synthRescuer(DEMO_SEGS, { seed: 7, noise: 0.0025 }) : null;
+    if (C.demo) { let t = 0; C.demo.caps = DEMO_SEGS.map((s) => { const c = { t, cap: s.cap }; t += s.seconds; return c; }); C.demo.end = t; }
+    cstep("live");
+    resetLiveUI();
+    $("video").hidden = !C.useCam;
+    $("metro").hidden = C.mode === "demo";
+    $("metro-t").textContent = C.useCam ? "Push to the beat while the camera starts." : "Push to the beat. Hard and fast, in the centre of the chest.";
+    $("live-dot").className = "dot live";
+    $("stage-l").textContent = C.mode === "demo" ? "Demo rescuer · pose 33 pts" : C.useCam ? "Starting camera" : "Metronome only";
+    if (C.mode === "emergency") { setClock("CPR time", Date.now(), true); say("Push hard and fast in the centre of the chest. Push to the beat.", true); }
+    else if (C.mode === "practice") { setClock(null); say("Practice starting. Push to the beat."); C.endAt = 60; }
+    else { setClock(null); }
+    metroStart();
+    loop();
+    if (C.useCam) {
+      const [okModel, okCam] = await Promise.all([loadModel(), startCamera()]);
+      if (!C.running) { stopCamera(); return; }
+      if (okModel && okCam) { C.camOK = true; $("metro").hidden = true; $("stage-l").textContent = "Live · pose 33 pts"; }
+      else {
+        stopCamera(); $("video").hidden = true;
+        $("stage-l").textContent = "Metronome only";
+        $("metro-t").textContent = okCam ? "Body tracking couldn't load here. Keep pushing to the beat." : "Camera unavailable. Keep pushing to the beat.";
+      }
+    }
+  }
+  async function startCamera() {
+    if (stream) return true;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { sys("sys-cam", "no", "not available"); return false; }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 960 }, height: { ideal: 720 } }, audio: false });
+      video.srcObject = stream; await video.play();
+      sys("sys-cam", "ok", "on"); return true;
+    } catch (e) { stream = null; sys("sys-cam", "no", "blocked"); return false; }
+  }
+  function stopCamera() { if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; video.srcObject = null; } }
+
+  function endCpr(why) {
+    if (!C.running) return;
+    C.running = false;
+    cancelAnimationFrame(C.raf); C.raf = 0;
+    metroStop(); quiet(); stopCamera();
+    $("live-dot").className = "dot";
+    if (C.mode === "emergency") setClock(null);
+    if (why === "leave" || why === "switch") { cstep("choose"); return; }
+    const t = (performance.now() - C.t0) / 1000;
+    const sm = C.session.summary(t);
+    if ((C.mode === "practice" || C.mode === "demo") && sm.ok && sm.count >= 8) showSummary(sm);
+    else { cstep("choose"); if (curView === "cpr") flowIn($("view-cpr")); }
+  }
+  $("c-stop").addEventListener("click", () => {
+    if (C.mode === "emergency" && C.stopArm < Date.now()) { C.stopArm = Date.now() + 3000; $("c-stop").textContent = "Tap again to stop"; setTimeout(() => { if (C.running) $("c-stop").textContent = "Stop CPR"; }, 3000); return; }
+    endCpr("stop");
+  });
+  $("t-metro").addEventListener("click", (e) => { metro.on = !metro.on; e.currentTarget.setAttribute("aria-pressed", String(metro.on)); });
+  $("t-voice").addEventListener("click", (e) => { voiceOn = !voiceOn; e.currentTarget.setAttribute("aria-pressed", String(voiceOn)); if (!voiceOn) quiet(); });
+  $("t-aed").addEventListener("click", () => {
+    banner("aed", "<b>AED</b><span>Turn it on and follow its voice. Keep pushing while the pads go on, and stand clear only when it says.</span>", 12000);
+    say("Turn on the A E D and follow its voice. Keep pushing while the pads go on.", true);
+  });
+  function banner(kind, html, ms) {
+    const b = $("banner"); b.className = "banner" + (kind === "aed" ? " aed" : ""); b.innerHTML = html; b.hidden = false;
+    clearTimeout(banner.h); banner.h = setTimeout(() => (b.hidden = true), ms || 7000);
+  }
+
+  // ---------------- main loop
+  function loop() {
+    const step = (now) => {
+      if (!C.running) return;
+      C.raf = requestAnimationFrame(step);
+      const t = (now - C.t0) / 1000;
+      let lm = null, srcW = 0, srcH = 0;
+      if (C.demo) {
+        const F = C.demo.frames;
+        while (C.fi < F.length && F[C.fi].t <= t) { const f = F[C.fi]; C.session.push(f.t, f.lm, f.w, f.h); C.fi++; }
+        const f = F[Math.max(0, C.fi - 1)]; lm = f.lm; srcW = f.w; srcH = f.h;
+        const cap = C.demo.caps.filter((c) => c.t <= t).pop();
+        if (cap) { $("caption").hidden = false; $("caption").textContent = "Simulated: " + cap.cap; }
+        if (t > C.demo.end + 0.5) { endCpr("stop"); return; }
+      } else if (C.camOK && video.readyState >= 2 && MP.pose) {
+        const ts = Math.max(C.lastTs + 1, now); C.lastTs = ts;
+        try {
+          const res = MP.pose.detectForVideo(video, ts);
+          lm = res && res.landmarks && res.landmarks[0] ? res.landmarks[0] : null;
+        } catch (e) { lm = null; }
+        srcW = video.videoWidth; srcH = video.videoHeight;
+        C.session.push(t, lm, srcW, srcH);
+      }
+      C.lastLm = lm;
+      draw(lm, srcW, srcH, t);
+      update(t, lm);
+    };
+    C.raf = requestAnimationFrame(step);
+  }
+
+  // ---------------- read-outs
+  function update(t, lm) {
+    const tracking = C.demo || C.camOK;
+    const st = C.session.state(t);
+    $("time-v").textContent = C.mode === "practice" ? fmtDur(Math.max(0, (60 - t) * 1000)) : fmtDur(t * 1000);
+    if (C.mode === "practice" && t >= 60) { endCpr("stop"); return; }
+    $("cue").classList.toggle("hide", !tracking);
+    if (!tracking) return;
+    const ls = C.session.samples(), seen = ls.length && ls[ls.length - 1].y != null;
+    $("stage-r").textContent = !lm ? "No body in view" : seen ? "" : "Arms not clearly in view";
+    if (st.count !== C.lastCount) {
+      C.lastCount = st.count; $("count-v").textContent = st.count;
+      const fl = $("flash"); fl.classList.add("on"); setTimeout(() => fl.classList.remove("on"), 60);
+      drawStrip($("strip"), C.session.summary(t).series || [], true);
+    }
+    setNeedle(st.rate);
+    $("rate-v").textContent = st.rate ? Math.round(st.rate) : "--";
+    $("rate-v").style.color = st.rate == null ? "" : st.rate >= 100 && st.rate <= 120 ? "var(--go)" : "var(--amber)";
+    $("depth-v").textContent = st.depth ? st.depth.toFixed(1) : "--";
+    $("depth-v").style.color = st.depth == null ? "" : st.depth >= 4.5 && st.depth <= 7 ? "var(--go)" : "var(--amber)";
+    if (st.depth) { $("dmark").hidden = false; $("dmark").style.top = (Math.min(8, st.depth) / 8) * 100 + "%"; }
+    // live push depth (follows the hands)
+    const smp = C.session.samples(), last = smp[smp.length - 1], g = st.geo;
+    if (last && last.y != null && g && g.arm) {
+      const ref = g.rest != null ? g.rest : g.top;
+      if (ref != null) $("dfill").style.height = Math.max(0, Math.min(100, (((last.y - ref) / g.arm) * R.ARM_CM / 8) * 100)) + "%";
+    }
+    if (st.recoil != null) { $("recoil-v").textContent = pct(st.recoil); $("st-recoil").className = "stat " + (st.recoil >= 0.8 ? "ok" : "warn"); }
+    if (st.elbow != null) { $("elbow-v").textContent = Math.round(st.elbow) + "°"; $("st-elbow").className = "stat " + (st.elbow >= 155 ? "ok" : "warn"); }
+    // coaching: show at once, speak once it has held for a moment, repeat corrections every 7 s
+    const m = st.message;
+    if (!C.cue || C.cue.id !== m.id) { C.cue = m; C.cueSince = t; setCue(m); }
+    const held = t - C.cueSince, sinceSpoken = t - C.spokenAt;
+    if (m.id !== "start" && m.id !== "keep") {
+      const need = m.id === "pause" ? 0.2 : 1.1;
+      const repeat = m.id === "good" ? 20 : 7;
+      if (held >= need && (C.spokenId !== m.id || sinceSpoken >= repeat)) { say(m.text); C.spokenId = m.id; C.spokenAt = t; if (m.tone === "bad") buzz(120); }
+    }
+    if (C.mode === "emergency" && st.elapsed >= C.nextSwap) {
+      C.nextSwap += 120;
+      banner("swap", "<b>2 minutes</b><span>If someone else can take over, swap now, in under 10 seconds.</span>", 9000);
+      say("Two minutes. If someone else can take over, swap now. Keep the pause short.", true);
+    }
+  }
+  function setCue(m) {
+    $("cue").className = "cue " + (m.tone || "");
+    $("cue-t").textContent = m.text;
+  }
+  // dial: 60..160 per minute over a 224° arc
+  const DC = { x: 100, y: 99.2, r: 82 };
+  const ang = (v) => -112 + ((Math.max(60, Math.min(160, v)) - 60) / 100) * 224;
+  const pt = (deg, r) => { const a = (deg * Math.PI) / 180; return [DC.x + r * Math.sin(a), DC.y - r * Math.cos(a)]; };
+  (function dialInit() {
+    const [x1, y1] = pt(ang(100), DC.r), [x2, y2] = pt(ang(120), DC.r);
+    $("dial-zone").setAttribute("d", `M${x1.toFixed(1)} ${y1.toFixed(1)} A${DC.r} ${DC.r} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`);
+    let g = "";
+    for (let v = 60; v <= 160; v += 20) {
+      const [a, b] = pt(ang(v), 70), [c, d] = pt(ang(v), 75), [lx, ly] = pt(ang(v), 61);
+      g += `<line x1="${a.toFixed(1)}" y1="${b.toFixed(1)}" x2="${c.toFixed(1)}" y2="${d.toFixed(1)}" stroke="var(--dim)" stroke-width="2"/><text x="${lx.toFixed(1)}" y="${(ly + 3).toFixed(1)}" fill="var(--muted)" font-size="9" font-family="IBM Plex Mono, monospace" text-anchor="middle">${v}</text>`;
+    }
+    $("dial-ticks").innerHTML = g;
+    const tube = (cm) => (cm / 8) * 100 + "%";
+    $("dzone").style.top = tube(5); $("dzone").style.height = (1 / 8) * 100 + "%";
+    $("dticks").innerHTML = [2, 4, 6].map((c) => `<span style="top:${tube(c)}">${c}</span>`).join("");
+  })();
+  function setNeedle(rate) { $("needle").style.transform = `rotate(${rate == null ? -112 : ang(rate)}deg)`; }
+
+  // ---------------- stage drawing (camera skeleton or demo scene)
+  function fitCanvas(c) {
+    const r = c.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    const ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return { ctx, w: r.width, h: r.height };
+  }
+  function coverMap(vw, vh, cw, ch, mirror) { const s = Math.max(cw / vw, ch / vh), ox = (cw - vw * s) / 2, oy = (ch - vh * s) / 2; return (x, y) => [ox + (mirror ? 1 - x : x) * vw * s, oy + y * vh * s]; }
+  const GO = "#2EE88A", AMBER = "#FFB224", INK = "#E9EEF0";
+  function draw(lm, srcW, srcH, t) {
+    const { ctx, w, h } = fitCanvas($("overlay"));
+    ctx.clearRect(0, 0, w, h);
+    if (!lm || !srcW) return;
+    const mirror = !C.demo;
+    const base = coverMap(srcW, srcH, w, h, mirror), lift = C.demo ? 0.12 : 0;
+    const map = (x, y) => base(x, y - lift);
+    const P = (i) => { const [x, y] = map(lm[i].x, lm[i].y); return { x, y, v: lm[i].visibility == null ? 1 : lm[i].visibility }; };
+    const s = map(0, 0), s2 = map(1, 1), scale = Math.abs(s2[0] - s[0]) / srcW;
+    if (C.demo) drawDemoScene(ctx, w, h, P, srcW, srcH, map);
+    const st = C.session.state(t);
+    const bent = st.elbow != null && st.elbow < 155;
+    // arms: the better-seen side bright
+    const arms = [[11, 13, 15], [12, 14, 16]].map((a) => ({ a, vis: Math.min(...a.map((i) => P(i).v)) })).sort((x, y) => y.vis - x.vis);
+    arms.forEach((arm, k) => {
+      if (arm.vis < 0.6) return;
+      const [S, E, W] = arm.a.map(P);
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.strokeStyle = k ? "rgba(46,232,138,0.35)" : bent ? AMBER : GO; ctx.lineWidth = k ? 3 : 5;
+      ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = k ? 0 : 12;
+      ctx.beginPath(); ctx.moveTo(S.x, S.y); ctx.lineTo(E.x, E.y); ctx.lineTo(W.x, W.y); ctx.stroke(); ctx.shadowBlur = 0;
+      if (!k) {
+        // elbow angle arc + label
+        const a1 = Math.atan2(S.y - E.y, S.x - E.x), a2 = Math.atan2(W.y - E.y, W.x - E.x);
+        ctx.strokeStyle = bent ? AMBER : "rgba(233,238,240,0.7)"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(E.x, E.y, 16, Math.min(a1, a2), Math.max(a1, a2)); ctx.stroke();
+        if (st.elbow) { ctx.fillStyle = bent ? AMBER : INK; ctx.font = "600 12px IBM Plex Mono, monospace"; ctx.fillText(Math.round(st.elbow) + "°", E.x + 20, E.y + 4); }
+      }
+    });
+    // torso
+    const sh = P(11), hp = P(23);
+    if (sh.v > 0.4 && hp.v > 0.4) { ctx.strokeStyle = "rgba(233,238,240,0.45)"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(sh.x, sh.y); ctx.lineTo(hp.x, hp.y); ctx.stroke(); ctx.setLineDash([]); }
+    [11, 12, 13, 14, 15, 16, 23, 24, 0].forEach((i) => { const q = P(i); if (q.v < 0.4) return; ctx.fillStyle = i === 15 || i === 16 ? GO : INK; ctx.beginPath(); ctx.arc(q.x, q.y, i === 15 || i === 16 ? 5 : 3.5, 0, Math.PI * 2); ctx.fill(); });
+    // wrist trail
+    const W = P(arms[0].a[2]);
+    C.trail.push({ x: W.x, y: W.y }); if (C.trail.length > 30) C.trail.shift();
+    ctx.strokeStyle = "rgba(46,232,138,0.5)"; ctx.lineWidth = 2; ctx.beginPath();
+    C.trail.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
+    // depth ruler beside the hands: resting height and the 5–6 cm target band, scaled by the arm
+    const g = st.geo;
+    if (g && g.arm && g.hip != null && (g.rest != null || g.top != null)) {
+      const restY = (g.rest != null ? g.rest : g.top) + g.hip;
+      const cm = (g.arm / R.ARM_CM) * scale;
+      const toC = (yPx) => map(0, yPx / srcH)[1];
+      const y0 = toC(restY), x = W.x + (mirror ? -42 : 42);
+      ctx.strokeStyle = "rgba(233,238,240,0.8)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x - 10, y0); ctx.lineTo(x + 10, y0); ctx.stroke();
+      ctx.fillStyle = "rgba(46,232,138,0.25)"; ctx.fillRect(x - 8, y0 + 5 * cm, 16, cm);
+      ctx.strokeStyle = GO; ctx.strokeRect(x - 8, y0 + 5 * cm, 16, cm);
+      ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + 8 * cm); ctx.strokeStyle = "rgba(233,238,240,0.3)"; ctx.stroke();
+      ctx.fillStyle = INK; ctx.font = "500 10px IBM Plex Mono, monospace"; ctx.textAlign = mirror ? "right" : "left";
+      ctx.fillText("5–6 cm", x + (mirror ? -14 : 14), y0 + 5.7 * cm); ctx.textAlign = "left";
+    }
+  }
+  function drawDemoScene(ctx, w, h, P, srcW, srcH, map) {
+    // floor and a simple patient lying across the frame; rescuer's body from the landmarks
+    const fl = map(0, 0.9)[1];
+    const grd = ctx.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, "#0B1114"); grd.addColorStop(1, "#060809");
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 28) { ctx.beginPath(); ctx.moveTo(x, fl); ctx.lineTo(x + (x - w / 2) * 0.6, h); ctx.stroke(); }
+    ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.beginPath(); ctx.moveTo(0, fl); ctx.lineTo(w, fl); ctx.stroke();
+    const Wr = P(15), Hp = P(23), Sh = P(11), Hd = P(0);
+    const chestY = Wr.y + 4;
+    // patient
+    const px0 = map(0.42, 0)[0], px1 = map(0.86, 0)[0];
+    ctx.fillStyle = "#1F2B31"; ctx.strokeStyle = "#4A5C66"; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(px0, fl); ctx.quadraticCurveTo(px0 - 4, chestY + 6, px0 + 26, chestY + 4);
+    ctx.quadraticCurveTo(Wr.x, chestY - 2, px1 - 30, chestY + 10); ctx.lineTo(px1 - 20, fl); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(px1 + 4, fl - 20, 22, 18, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillRect(map(0.1, 0)[0], fl - 16, px0 - map(0.1, 0)[0] + 2, 14);
+    // rescuer silhouette
+    const knee = { x: Hp.x + (Wr.x - Hp.x) * 0.25, y: fl - 4 }, foot = { x: Hp.x - (Wr.x - Hp.x) * 0.55, y: fl - 4 };
+    ctx.strokeStyle = "#34444D"; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.lineWidth = 22; ctx.beginPath(); ctx.moveTo(Hp.x, Hp.y); ctx.lineTo(knee.x, knee.y); ctx.lineTo(foot.x, foot.y); ctx.stroke();
+    ctx.lineWidth = 30; ctx.beginPath(); ctx.moveTo(Hp.x, Hp.y); ctx.lineTo(Sh.x, Sh.y); ctx.stroke();
+    ctx.fillStyle = "#34444D"; ctx.beginPath(); ctx.arc(Hd.x, Hd.y, 17, 0, Math.PI * 2); ctx.fill();
+    const El = P(13); ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(Sh.x, Sh.y); ctx.lineTo(El.x, El.y); ctx.lineTo(Wr.x, Wr.y); ctx.stroke();
+  }
+
+  // ---------------- strip chart: rate (60–160) and depth (0–8 cm) per compression
+  function drawStrip(c, series, live) {
+    const { ctx, w, h } = fitCanvas(c);
+    ctx.clearRect(0, 0, w, h);
+    const span = live ? Math.max(30, series.length ? series[series.length - 1].t + 2 : 30) : Math.max(10, series.length ? series[series.length - 1].t + 1 : 10);
+    const t0 = live ? Math.max(0, span - 30) : 0, tw = live ? 30 : span;
+    const X = (t) => ((t - t0) / tw) * w;
+    const rY = (r) => h - ((Math.max(60, Math.min(160, r)) - 60) / 100) * (h - 8) - 4;
+    const dY = (d) => 4 + (Math.min(8, Math.max(0, d)) / 8) * (h - 8);
+    ctx.fillStyle = "rgba(46,232,138,0.12)"; ctx.fillRect(0, rY(120), w, rY(100) - rY(120));
+    ctx.fillStyle = "rgba(76,168,255,0.10)"; ctx.fillRect(0, dY(5), w, dY(6) - dY(5));
+    ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.lineWidth = 1;
+    for (let s = Math.ceil(t0 / 5) * 5; s < t0 + tw; s += 5) { ctx.beginPath(); ctx.moveTo(X(s), 0); ctx.lineTo(X(s), h); ctx.stroke(); }
+    const pts = series.filter((p) => p.t >= t0);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#4CA8FF"; ctx.beginPath(); pts.forEach((p, i) => (i && p.t - pts[i - 1].t < 2 ? ctx.lineTo(X(p.t), dY(p.depth)) : ctx.moveTo(X(p.t), dY(p.depth)))); ctx.stroke();
+    ctx.fillStyle = "#4CA8FF"; pts.forEach((p) => { ctx.beginPath(); ctx.arc(X(p.t), dY(p.depth), 2, 0, 7); ctx.fill(); });
+    ctx.strokeStyle = GO; ctx.beginPath(); let st = false; pts.forEach((p) => { if (p.rate == null) { st = false; return; } st ? ctx.lineTo(X(p.t), rY(p.rate)) : ctx.moveTo(X(p.t), rY(p.rate)); st = true; }); ctx.stroke();
+    ctx.fillStyle = "#586369"; ctx.font = "500 9px IBM Plex Mono, monospace";
+    ctx.fillText("120/min", 4, rY(120) - 3); ctx.fillText("5–6 cm", w - 44, dY(6) + 10);
+  }
+
+  // ---------------- summary
+  function showSummary(sm) {
+    cstep("summary");
+    const demo = C.mode === "demo";
+    $("sum-k").textContent = demo ? "Demo result · simulated rescuer" : "Practice result";
+    $("sum-demo").hidden = demo;
+    const score = sm.score;
+    $("score-v").textContent = "0";
+    $("score-ring").style.strokeDashoffset = "326.7";
+    $("score-ring").style.stroke = score >= 80 ? "var(--go)" : score >= 60 ? "var(--amber)" : "var(--red)";
+    requestAnimationFrame(() => requestAnimationFrame(() => { $("score-ring").style.strokeDashoffset = String(326.7 * (1 - score / 100)); }));
+    if (!reduce) { const t0 = performance.now(); const tick = (n) => { const k = Math.min(1, (n - t0) / 1200); $("score-v").textContent = Math.round(score * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+    else $("score-v").textContent = score;
+    $("sum-title").textContent = score >= 90 ? "Excellent CPR" : score >= 70 ? "Good, with a few fixes" : "Keep practising";
+    const issues = [];
+    const ser = sm.series, cnt = (f) => ser.filter(f).length;
+    const slow = cnt((p) => p.rate != null && p.rate < 98), fast = cnt((p) => p.rate != null && p.rate > 122);
+    const shallow = cnt((p) => p.depth < 4.7), deep = cnt((p) => p.depth > 6.5);
+    if (sm.inRate < 0.9) issues.push(slow >= fast ? "push faster, to the beat (100–120 a minute)" : "slow down slightly, to the beat");
+    if (sm.inDepth < 0.9) issues.push(shallow >= deep ? "push harder, at least 5 cm" : "push a little less deep");
+    if (sm.fullRecoil < 0.9) issues.push("let the chest come all the way up between pushes");
+    if (sm.straight < 0.9) issues.push("lock your elbows and push from the shoulders");
+    if (sm.fraction < 0.85) issues.push("keep pauses short; every second of no pushing counts");
+    $("sum-body").textContent = `${sm.count} compressions in ${Math.round(sm.seconds)} seconds, averaging ${Math.round(sm.rate || 0)} a minute and ${sm.depth.toFixed(1)} cm deep. ` + (issues.length ? "Next time: " + issues.slice(0, 2).join("; ") + "." : "That's what effective CPR looks like.");
+    const row = (ok, label, val) => `<div class="${ok ? "ok" : "no"}"><span class="ic">${ok ? "✓" : "!"}</span><span>${label}</span><span class="mono">${val}</span></div>`;
+    $("sum-checks").innerHTML = [
+      row(sm.inRate >= 0.9, "Rate 100–120 a minute", pct(sm.inRate)),
+      row(sm.inDepth >= 0.9, "Depth 5–6 cm", pct(sm.inDepth)),
+      row(sm.fullRecoil >= 0.9, "Full chest recoil", pct(sm.fullRecoil)),
+      row(sm.straight >= 0.9, "Arms straight", pct(sm.straight)),
+      row(sm.fraction >= 0.85, "Hands on the chest", pct(sm.fraction)),
+      row(sm.longestPause < 10, "Longest pause", sm.longestPause ? sm.longestPause.toFixed(1) + " s" : "none"),
+    ].join("");
+    setTimeout(() => drawStrip($("sum-strip"), sm.series, false), 30);
+    if (!demo) {
+      const b = store.get("restart.best", null);
+      if (b == null || score > b) { store.set("restart.best", score); $("best-score").textContent = score; if (b != null) toast("New best score"); }
+    }
+    say(demo ? `Demo finished. Score ${score}.` : `Practice finished. Your score is ${score}.`);
+    flowIn($("view-cpr"));
+  }
+  $("sum-again").addEventListener("click", () => { if (C.mode === "demo") startCpr("demo"); else startCpr(C.mode || "practice"); });
+
+  // ============================================================ SCIENCE: live validation
+  let validated = false;
+  function renderValidation() {
+    if (validated) return; validated = true;
+    const PRE = { seconds: 1.5, pause: true };
+    const cases = [
+      ["Good technique", { rate: 110, depthCm: 5.5 }, {}, "good"],
+      ["Too slow", { rate: 85, depthCm: 5.5 }, {}, "faster"],
+      ["Too fast", { rate: 135, depthCm: 5.5 }, {}, "slower"],
+      ["Too shallow", { rate: 110, depthCm: 3.2 }, {}, "harder"],
+      ["Too deep", { rate: 110, depthCm: 7.6 }, {}, "softer"],
+      ["Bent elbows", { rate: 110, depthCm: 5.5, elbow: 130 }, {}, "elbows"],
+      ["Leaning on the chest", { rate: 110, depthCm: 5.5, recoil: 0.55 }, {}, "recoil"],
+      ["Shaky phone", { rate: 112, depthCm: 5.5 }, { noise: 0.006, seed: 9 }, "good"],
+      ["Slow phone, 15 fps", { rate: 108, depthCm: 5.2 }, { fps: 15 }, "good"],
+      ["Close camera, HD", { rate: 115, depthCm: 5.8 }, { w: 1280, h: 720 }, "good"],
+      ["Far camera, low-res", { rate: 105, depthCm: 5.4 }, { w: 480, h: 360 }, "good"],
+    ];
+    let rows = "", rE = 0, dE = 0, ok = 0;
+    for (const [name, seg, opts, want] of cases) {
+      const s = R.synthRescuer([PRE, Object.assign({ seconds: 15 }, seg)], opts), S = R.createSession();
+      for (const f of s.frames) S.push(f.t, f.lm, f.w, f.h);
+      const st = S.state(), sm = S.summary();
+      const pass = st.message.id === want; ok += pass;
+      rE += Math.abs(sm.rate - seg.rate); dE += Math.abs(sm.depth - seg.depthCm);
+      const extra = seg.elbow ? `, ${seg.elbow}°` : seg.recoil ? `, recoil ${pct(seg.recoil)}` : "";
+      const mextra = seg.elbow ? `, ${Math.round(st.elbow)}°` : seg.recoil ? `, recoil ${pct(st.recoil)}` : "";
+      rows += `<tr><td>${name}</td><td class="mono">${seg.rate}/min, ${seg.depthCm} cm${extra}</td><td class="mono">${sm.rate.toFixed(1)}/min, ${sm.depth.toFixed(2)} cm${mextra}</td><td>${st.message.text}</td><td class="${pass ? "pass" : "failc"}">${pass ? "PASS" : "FAIL"}</td></tr>`;
+    }
+    $("val-body").innerHTML = rows;
+    $("val-sum").textContent = `${ok}/${cases.length} correct coaching decisions. Mean error: rate ${(rE / cases.length).toFixed(2)} compressions/min, depth ${(dE / cases.length).toFixed(2)} cm. Computed in your browser just now.`;
+  }
+
+  // ============================================================ PITCH deck
+  const slides = Array.from(document.querySelectorAll("#deck .slide"));
+  let deckIdx = 0;
+  $("deck-dots").innerHTML = slides.map((s, i) => `<button type="button" aria-label="Slide ${i + 1}: ${s.getAttribute("aria-label")}"></button>`).join("");
+  function deckGo(i, instant) {
+    deckIdx = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, k) => { s.classList.toggle("on", k === deckIdx); s.classList.toggle("prev", k < deckIdx); s.setAttribute("aria-hidden", String(k !== deckIdx)); });
+    $("deck-dots").querySelectorAll("button").forEach((b, k) => b.setAttribute("aria-current", String(k === deckIdx)));
+    $("deck-count").textContent = `${deckIdx + 1} / ${slides.length}`;
+    if (!instant && !reduce) Array.from(slides[deckIdx].children).forEach((c, k) => c.animate && c.animate([{ opacity: 0, transform: "translateY(16px)" }, { opacity: 1, transform: "none" }], { duration: 460, delay: 80 + k * 70, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }));
+  }
+  document.querySelectorAll("[data-deck]").forEach((b) => b.addEventListener("click", () => deckGo(deckIdx + (b.dataset.deck === "next" ? 1 : -1))));
+  $("deck-dots").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) deckGo(Array.from(b.parentNode.children).indexOf(b)); });
+  document.addEventListener("keydown", (e) => {
+    if (curView !== "pitch" || e.target.closest("input, select, textarea")) return;
+    if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") { e.preventDefault(); deckGo(deckIdx + 1); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); deckGo(deckIdx - 1); }
+  });
+  let tx = null;
+  $("deck").addEventListener("touchstart", (e) => { tx = e.touches[0].clientX; }, { passive: true });
+  $("deck").addEventListener("touchend", (e) => { if (tx == null) return; const dx = e.changedTouches[0].clientX - tx; if (Math.abs(dx) > 50) deckGo(deckIdx + (dx < 0 ? 1 : -1)); tx = null; });
+
+  setNumber(store.get("restart.number", null) || defaultNumber());
+  window.__restart = { C, HC, startCpr };
+  route();
+})();
+</script>
+
+</body></html>
